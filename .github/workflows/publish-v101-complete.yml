@@ -1,0 +1,123 @@
+name: Publish complete GEE v1.0.1
+
+on:
+  push:
+    paths:
+      - '.github/workflows/publish-v101-complete.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply personal-project and dataset-availability corrections
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          js_path = Path('gee/automated_land_cover_app.js')
+          text = js_path.read_text(encoding='utf-8')
+
+          required = {
+              "// Geospatial Unit - Land and Water Division (NSL)\n": "",
+              "// Food and Agriculture Organization of the United Nations (FAO HQ)\n": "",
+              "control.add(note(\n  'By: Hamed Sabzchi Dehkharghani - FAO-NSL Geospatial Unit; ' +\n  'Food and Agriculture Organization of the United Nations'\n));": "control.add(note('By: Hamed Sabzchi Dehkharghani'));",
+              "var yearBox = input('Assessment / priority year', 2025);": "var yearBox = input('Assessment / priority year', 2024);",
+              "var fallbackBox = input('Fallback year for the priority year', 2024);": "var fallbackBox = input('Fallback year for the priority year', 2023);",
+              "var target = n(yearBox.getValue(), 'Assessment year', 2017, 2100);": "var target = n(yearBox.getValue(), 'Assessment year', 2017, 2024);",
+              "fallbackBox.getValue(), 'Fallback year', 2017, 2100": "fallbackBox.getValue(), 'Fallback year', 2017, 2024",
+              "var EXACT_DRIVE_FOLDER = 'FAO_LandCover_Exports';": "var EXACT_DRIVE_FOLDER = 'LandCover_Exports';",
+          }
+
+          for old, new in required.items():
+              if old not in text:
+                  raise SystemExit(f'Required source pattern not found; refusing to alter user code: {old!r}')
+              text = text.replace(old, new, 1)
+
+          forbidden = [
+              'FAO-NSL Geospatial Unit',
+              'Food and Agriculture Organization of the United Nations',
+              'FAO_LandCover_Exports',
+          ]
+          for item in forbidden:
+              if item in text:
+                  raise SystemExit(f'Institutional branding still present: {item}')
+
+          js_path.write_text(text, encoding='utf-8')
+
+          cff = Path('CITATION.cff')
+          cff_text = cff.read_text(encoding='utf-8')
+          cff_text = cff_text.replace('version: 1.0.0', 'version: 1.0.1', 1)
+          cff_text = cff_text.replace('doi: "10.5281/zenodo.22770165"\n', '', 1)
+          cff_text = cff_text.replace(
+              'url: "https://doi.org/10.5281/zenodo.22770165"',
+              'url: "https://github.com/hamedsabzchi/libya-automated-land-cover-mapping"',
+              1,
+          )
+          cff.write_text(cff_text, encoding='utf-8')
+
+          readme = Path('README.md')
+          readme_text = readme.read_text(encoding='utf-8')
+          readme_text = readme_text.replace(
+              'a streamlined reference Google Earth Engine JavaScript application',
+              'the complete reference Google Earth Engine JavaScript application',
+              1,
+          )
+          old_citation = (
+              'Software citation metadata are provided in `CITATION.cff`. '
+              'The Zenodo DOI will be added after the first archived GitHub release is preserved.'
+          )
+          new_citation = (
+              'Software citation metadata are provided in `CITATION.cff`. '
+              'Zenodo preservation is enabled; the DOI for the corrective `v1.0.1` release '
+              'will be added after Zenodo archives the complete GEE application.'
+          )
+          if old_citation in readme_text:
+              readme_text = readme_text.replace(old_citation, new_citation, 1)
+          readme_text = readme_text.replace(
+              '[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22770165.svg)](https://doi.org/10.5281/zenodo.22770165)\n\n',
+              '',
+          )
+          readme_text = readme_text.replace('Zenodo DOI: **10.5281/zenodo.22770165**', new_citation)
+          readme.write_text(readme_text, encoding='utf-8')
+          PY
+
+      - name: Verify complete repository
+        shell: bash
+        run: |
+          python -m pip install pytest
+          node --check gee/automated_land_cover_app.js
+          python -m json.tool python/02_landcover_colab.ipynb >/dev/null
+          python -m pytest -q
+          test "$(wc -c < gee/automated_land_cover_app.js)" -gt 90000
+
+      - name: Create clean corrective commit
+        id: clean
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          rm -f .github/workflows/publish-v101-complete.yml
+          git add -A
+          git commit -m 'Restore complete GEE application for v1.0.1'
+          git push
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Publish v1.0.1
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CLEAN_SHA: ${{ steps.clean.outputs.sha }}
+        shell: bash
+        run: |
+          gh release create v1.0.1 \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$CLEAN_SHA" \
+            --title "v1.0.1 — Complete GEE application" \
+            --notes "Corrective release. The v1.0.0 archive contained a shortened GEE JavaScript implementation. v1.0.1 restores the complete user-maintained GEE application, keeps the repository as an independent personal project, and aligns the default Satellite Embedding years with the current public Earth Engine catalog (2024 priority year, 2023 fallback)."
