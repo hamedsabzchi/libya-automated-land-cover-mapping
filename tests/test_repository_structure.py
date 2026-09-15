@@ -77,3 +77,17 @@ def test_readme_has_scientific_cautions_and_personal_notice():
     assert "not independent external validation" in readme.lower()
     assert "Google and Google DeepMind" in readme
     assert "No open-source license" in readme
+
+
+def test_python_and_gee_defaults_are_synchronized():
+    js = (ROOT / "gee/automated_land_cover_app.js").read_text(encoding="utf-8")
+    py = (ROOT / "python/landcover_engine.py").read_text(encoding="utf-8")
+    assert "Assessment / priority year', 2024" in js
+    assert "target_year: int = 2024" in py
+    assert "Fallback year for the priority year', 2023" in js
+    assert "fallback_year: int = 2023" in py
+    assert "numberOfTrees: cfg.trees" in js
+    assert "trees: int = 500" in py
+    assert "bag_fraction: float = 0.95" in py
+    assert "class4Count.gte(2)" in js and "class4_count.gte(2)" in py
+    assert "class5Count.gte(2)" in js and "class5_count.gte(2)" in py

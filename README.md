@@ -1,7 +1,5 @@
 # Libya Automated Land-Cover Mapping
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22776249.svg)](https://doi.org/10.5281/zenodo.22776249)
-
 A reproducible Google Earth Engine workflow for guided automated land-cover mapping in Libya, with the default area of interest set to Fezzan. The project combines annual Google Satellite Embedding features with SRTM terrain predictors, class-stratified hold-out validation, per-year Random Forest models, multi-seed model selection, and explicit multi-year temporal decision rules.
 
 ## Project status
@@ -91,6 +89,10 @@ libya-automated-land-cover-mapping/
         └── static-tests.yml
 ```
 
+## Python ↔ GEE synchronization
+
+The Python engine and Colab notebook are synchronized with the complete GEE modeling core. They use the same datasets, year bounds/defaults, class scheme, Random Forest settings, seed-selection criterion, validation logic, and temporal cultivated-class rules. GEE-specific user-interface and direct browser-download controls are intentionally not duplicated in Python.
+
 ## Google Colab
 
 Open the notebook at:
@@ -121,9 +123,7 @@ This repository is an independent personal technical portfolio and research-deve
 
 ## Citation
 
-Zenodo DOI for the complete `v1.0.1` release: **10.5281/zenodo.22776249**
-
-Software citation metadata are provided in `CITATION.cff`.
+Software citation metadata are provided in `CITATION.cff`. The DOI for `v1.0.2` will be added after Zenodo archives this synchronized release.
 
 ## Licensing note
 

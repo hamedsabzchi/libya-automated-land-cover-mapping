@@ -16,6 +16,10 @@ from typing import Any, Dict, Iterable, Tuple
 import ee
 
 EMBEDDING_COLLECTION = "GOOGLE/SATELLITE_EMBEDDING/V1/ANNUAL"
+# Modeling-core counterpart of the complete GEE application.
+# It mirrors predictor construction, stratified splitting, Random Forest settings,
+# temporal cultivated-class rules, validation metrics, and 2017-2024 data bounds.
+# JavaScript-only UI, paged browser-download links, and map widgets are intentionally not duplicated.
 SRTM_IMAGE = "USGS/SRTMGL1_003"
 EMBEDDING_FIRST_YEAR = 2017
 EMBEDDING_LAST_YEAR = 2024
@@ -374,3 +378,17 @@ def configuration_summary(config: LandCoverConfig) -> str:
         f"fallback={config.fallback_year} | RF trees={config.trees} | "
         f"train fraction={config.train_fraction:.2f} | scale={config.scale_m:g} m"
     )
+
+
+def asset_diagnostics(config: LandCoverConfig) -> ee.Dictionary:
+    """Return lightweight diagnostics for the configured personal EE assets."""
+    validate_config(config)
+    roi, points = load_assets(config)
+    return ee.Dictionary({
+        "aoi_features": roi.size(),
+        "training_points": points.size(),
+        "classes": points.aggregate_array(config.class_field).distinct().sort(),
+        "years": list(config.years),
+        "target_year": config.target_year,
+        "fallback_year": config.fallback_year,
+    })
