@@ -45,4 +45,4 @@ jobs:
           git commit -m 'Publish verified automated land-cover mapping project'
           git push
 
-# Retry triggered after all verified payload parts were staged.
+# Retry after repairing payload chunks.
