@@ -1,5 +1,7 @@
 # Libya Automated Land-Cover Mapping
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22770165.svg)](https://doi.org/10.5281/zenodo.22770165)
+
 A reproducible Google Earth Engine workflow for guided automated land-cover mapping in Libya, with the default area of interest set to Fezzan. The project combines annual Google Satellite Embedding features with SRTM terrain predictors, class-stratified hold-out validation, per-year Random Forest models, multi-seed model selection, and explicit multi-year temporal decision rules.
 
 ## Project status
@@ -119,7 +121,9 @@ This repository is an independent personal technical portfolio and research-deve
 
 ## Citation
 
-Software citation metadata are provided in `CITATION.cff`. The Zenodo DOI will be added after the first archived GitHub release is preserved.
+Zenodo DOI: **10.5281/zenodo.22770165**
+
+Software citation metadata are also provided in `CITATION.cff`.
 
 ## Licensing note
 
