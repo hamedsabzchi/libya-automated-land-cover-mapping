@@ -1,0 +1,46 @@
+name: Finalize verified project
+
+on:
+  push:
+    paths:
+      - '.github/workflows/finalize-project.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Reconstruct verified project
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p gee
+          cat .stage/js.part00 .stage/js.part01 .stage/js.part02 .stage/js.part03 .stage/js.part04 .stage/js.part05 | base64 -d | gzip -d > gee/automated_land_cover_app.js
+          echo '4689d008c387de4669e26c2f66bf5823618d8a4287178030458667931ea98ca6  gee/automated_land_cover_app.js' | sha256sum -c -
+
+          cat .stage/small.part00 .stage/small.part01 .stage/small.part02 | base64 -d > /tmp/small.tgz
+          echo '3285595df1d08224be1cdb7dd419e4f09d145cbbf198c95d4ab5e193753fa154  /tmp/small.tgz' | sha256sum -c -
+          tar -xzf /tmp/small.tgz
+
+          rm -rf .stage .source
+          rm -f .github/workflows/rebuild-repo.yml
+          rm -f .github/workflows/finalize-project.yml
+
+      - name: Verify JavaScript and repository tests
+        shell: bash
+        run: |
+          node --check gee/automated_land_cover_app.js
+          python -m pip install -q pytest
+          python -m pytest -q
+
+      - name: Commit clean project
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          git commit -m 'Publish verified automated land-cover mapping project'
+          git push
