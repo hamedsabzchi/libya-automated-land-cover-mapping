@@ -22,7 +22,7 @@ jobs:
           python -m pip install pytest
           node --check gee/automated_land_cover_app.js
           python -m pytest -q
-          python -m json.tool python/02_full_land_cover_colab.ipynb >/dev/null
+          python -m json.tool python/02_landcover_colab.ipynb >/dev/null
 
       - name: Create clean release commit
         id: clean
