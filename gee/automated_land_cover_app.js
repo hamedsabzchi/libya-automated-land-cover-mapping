@@ -1,8 +1,6 @@
 // ============================================================================
 // GUIDED AUTOMATED LAND-COVER MAPPING APP
 // By: Hamed Sabzchi Dehkharghani 
-// Geospatial Unit - Land and Water Division (NSL)
-// Food and Agriculture Organization of the United Nations (FAO HQ)
 // ============================================================================
 
 ui.root.clear();
@@ -98,10 +96,7 @@ control.add(ui.Label('Automated Land-Cover Mapping', {
   fontWeight: 'bold', fontSize: '22px', color: '#1b5e20'
 }));
 
-control.add(note(
-  'By: Hamed Sabzchi Dehkharghani - FAO-NSL Geospatial Unit; ' +
-  'Food and Agriculture Organization of the United Nations'
-));
+control.add(note('By: Hamed Sabzchi Dehkharghani'));
 
 control.add(title('1. Required assets'));
 var aoiBox = input(
@@ -121,9 +116,9 @@ control.add(note(
 ));
 
 control.add(title('2. Assessment period'));
-var yearBox = input('Assessment / priority year', 2025);
+var yearBox = input('Assessment / priority year', 2024);
 var windowBox = input('Number of annual maps in temporal majority', 5);
-var fallbackBox = input('Fallback year for the priority year', 2024);
+var fallbackBox = input('Fallback year for the priority year', 2023);
 
 control.add(title('3. Model controls'));
 var targetBox = ui.Textbox({value: '60'});       // Hidden; preserved internally.
@@ -185,7 +180,7 @@ control.add(resultsPanel);
 
 
 function readConfig() {
-  var target = n(yearBox.getValue(), 'Assessment year', 2017, 2100);
+  var target = n(yearBox.getValue(), 'Assessment year', 2017, 2024);
   var count = Math.round(n(windowBox.getValue(), 'Year count', 1, 20));
   var years = [];
   for (var i = 0; i < count; i++) years.push(target - i);
@@ -197,7 +192,7 @@ function readConfig() {
     targetYear: target,
     years: years,
     fallback: Math.round(n(
-      fallbackBox.getValue(), 'Fallback year', 2017, 2100
+      fallbackBox.getValue(), 'Fallback year', 2017, 2024
     )),
     targetAccuracy: n(targetBox.getValue(), 'Target accuracy', 0, 100),
     excluded: Math.round(n(
@@ -2284,7 +2279,7 @@ simple10Reset(
 simple10Sync();
 
 
-var EXACT_DRIVE_FOLDER = 'FAO_LandCover_Exports';
+var EXACT_DRIVE_FOLDER = 'LandCover_Exports';
 var EXACT_EXPORT = {busy: false, generation: 0};
 
 function exactExportLayout() {
