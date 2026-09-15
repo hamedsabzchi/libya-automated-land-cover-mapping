@@ -6,8 +6,9 @@ authors:
   - family-names: "Sabzchi Dehkharghani"
     given-names: "Hamed"
 version: 1.0.1
+doi: "10.5281/zenodo.22776249"
 repository-code: "https://github.com/hamedsabzchi/libya-automated-land-cover-mapping"
-url: "https://github.com/hamedsabzchi/libya-automated-land-cover-mapping"
+url: "https://doi.org/10.5281/zenodo.22776249"
 abstract: >-
   A reproducible Google Earth Engine and Python workflow for guided automated
   land-cover mapping in Libya using annual Google Satellite Embedding features,
