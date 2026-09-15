@@ -35,16 +35,28 @@ def test_current_embedding_period_and_inputs_are_explicit():
         assert "USGS/SRTMGL1_003" in text
         assert "2017" in text
         assert "2024" in text
-    assert "textInput('Priority year', 2024)" in js
-    assert "textInput('Fallback year for masked priority pixels', 2023)" in js
+    assert "var yearBox = input('Assessment / priority year', 2024);" in js
+    assert "var fallbackBox = input('Fallback year for the priority year', 2023);" in js
+    assert "'Assessment year', 2017, 2024" in js
+    assert "'Fallback year', 2017, 2024" in js
 
 
 def test_classes_and_temporal_rules_are_present():
     js = (ROOT / "gee/automated_land_cover_app.js").read_text(encoding="utf-8")
-    assert "var CLASS_VALUES = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];" in js
+    assert "var classValues = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];" in js
     assert "class4Count.gte(2)" in js
     assert "class5Count.gte(2)" in js
     assert "smileRandomForest" in js
+    assert "getDownloadURL" in js
+    assert "FINAL VERIFIED CLASS-DATA DOWNLOAD CORRECTION" in js
+
+
+def test_complete_gee_script_is_not_shortened():
+    js_path = ROOT / "gee/automated_land_cover_app.js"
+    text = js_path.read_text(encoding="utf-8")
+    assert js_path.stat().st_size > 90000
+    assert "GENERATE FIRST 20 DOWNLOAD LINKS" in text
+    assert "Empty/outside-AOI grid cells will be skipped automatically" in text
 
 
 def test_notebook_is_valid_json_and_uses_safe_dynamic_import():
