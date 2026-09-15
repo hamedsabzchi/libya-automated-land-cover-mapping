@@ -1,0 +1,24 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using the metadata in this file."
+title: "Libya Automated Land-Cover Mapping"
+type: software
+authors:
+  - family-names: "Sabzchi Dehkharghani"
+    given-names: "Hamed"
+version: 1.0.0
+repository-code: "https://github.com/hamedsabzchi/libya-automated-land-cover-mapping"
+url: "https://github.com/hamedsabzchi/libya-automated-land-cover-mapping"
+abstract: >-
+  A reproducible Google Earth Engine and Python workflow for guided automated
+  land-cover mapping in Libya using annual Google Satellite Embedding features,
+  SRTM terrain predictors, Random Forest classification, stratified hold-out
+  validation, and explicit multi-year temporal decision rules.
+keywords:
+  - Google Earth Engine
+  - land cover
+  - remote sensing
+  - geospatial
+  - Random Forest
+  - Satellite Embedding
+  - AlphaEarth Foundations
+  - Libya
