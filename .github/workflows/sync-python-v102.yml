@@ -16,7 +16,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Synchronize Python defaults and metadata with complete GEE app
+      - name: Synchronize Python, Colab, tests, and citation metadata
         shell: bash
         run: |
           python - <<'PY'
@@ -25,67 +25,80 @@ jobs:
 
           engine = Path('python/landcover_engine.py')
           text = engine.read_text(encoding='utf-8')
+          for expected in [
+              'EMBEDDING_FIRST_YEAR = 2017',
+              'EMBEDDING_LAST_YEAR = 2024',
+              'target_year: int = 2024',
+              'fallback_year: int = 2023',
+              'trees: int = 500',
+              'bag_fraction: float = 0.95',
+              'excluded_class_from_threshold: int = 8',
+              'class4_count.gte(2)',
+              'class5_count.gte(2)',
+          ]:
+              if expected not in text:
+                  raise SystemExit(f'Python engine is missing synchronized logic: {expected}')
 
-          replacements = {
-              'target_year: int = 2024': 'target_year: int = 2024',
-              'fallback_year: int = 2023': 'fallback_year: int = 2023',
-          }
-          for old, new in replacements.items():
-              if old not in text:
-                  raise SystemExit(f'Expected synchronized setting not found: {old}')
-              text = text.replace(old, new, 1)
-
-          # Keep a visible compatibility note with the complete JavaScript implementation.
-          marker = 'SATELLITE_EMBEDDING_COLLECTION = "GOOGLE/SATELLITE_EMBEDDING/V1/ANNUAL"\n'
-          note = (
+          marker = 'EMBEDDING_COLLECTION = "GOOGLE/SATELLITE_EMBEDDING/V1/ANNUAL"\n'
+          sync_note = (
               marker
-              + '# Python reference implementation synchronized with the complete GEE v1.0.1 application.\n'
-              + '# The JavaScript UI/download system is richer; the Python module mirrors the modeling core,\n'
-              + '# validation logic, temporal cultivated-class rules, and 2017-2024 dataset bounds.\n'
+              + '# Modeling-core counterpart of the complete GEE application.\n'
+              + '# It mirrors predictor construction, stratified splitting, Random Forest settings,\n'
+              + '# temporal cultivated-class rules, validation metrics, and 2017-2024 data bounds.\n'
+              + '# JavaScript-only UI, paged browser-download links, and map widgets are intentionally not duplicated.\n'
           )
-          if marker in text and 'synchronized with the complete GEE v1.0.1 application' not in text:
-              text = text.replace(marker, note, 1)
+          if 'Modeling-core counterpart of the complete GEE application.' not in text:
+              text = text.replace(marker, sync_note, 1)
+
+          if 'def asset_diagnostics(' not in text:
+              text += '''\n\ndef asset_diagnostics(config: LandCoverConfig) -> ee.Dictionary:\n    """Return lightweight diagnostics for the configured personal EE assets."""\n    validate_config(config)\n    roi, points = load_assets(config)\n    return ee.Dictionary({\n        "aoi_features": roi.size(),\n        "training_points": points.size(),\n        "classes": points.aggregate_array(config.class_field).distinct().sort(),\n        "years": list(config.years),\n        "target_year": config.target_year,\n        "fallback_year": config.fallback_year,\n    })\n'''
           engine.write_text(text, encoding='utf-8')
 
-          # Update notebook explanatory text and ensure it points at the same engine.
+          # Connection test: initialize EE and verify the same default assets used by GEE/Python.
+          Path('python/01_test_gee_connection.py').write_text('''"""Earth Engine authentication and default-asset connectivity test."""\n\nimport os\nimport ee\n\nPROJECT_ID = os.getenv("EE_PROJECT", "practical-proxy-441422-n6")\nAOI_ASSET = "projects/practical-proxy-441422-n6/assets/Libya/Fezzan"\nTRAINING_ASSET = "projects/practical-proxy-441422-n6/assets/Libya/TD-V4"\n\n\ndef main() -> None:\n    ee.Authenticate(auth_mode="notebook", force=True)\n    ee.Initialize(project=PROJECT_ID)\n    aoi = ee.FeatureCollection(AOI_ASSET)\n    training = ee.FeatureCollection(TRAINING_ASSET)\n    print("SUCCESS: Earth Engine initialized.")\n    print("AOI features:", aoi.size().getInfo())\n    print("Training points:", training.size().getInfo())\n\n\nif __name__ == "__main__":\n    main()\n''', encoding='utf-8')
+
+          # Colab note: explicitly state what is synchronized and what remains JS-specific.
           nb_path = Path('python/02_landcover_colab.ipynb')
           nb = json.loads(nb_path.read_text(encoding='utf-8'))
-          changed = False
-          for cell in nb.get('cells', []):
-              if cell.get('cell_type') == 'markdown':
-                  src = ''.join(cell.get('source', []))
-                  if 'Python reference implementation' in src and 'complete GEE' not in src:
-                      src += '\n\nThis notebook uses the Python modeling core synchronized with the complete GEE application. The Earth Engine JavaScript app contains additional UI and browser-download controls that are intentionally not duplicated in Python.\n'
-                      cell['source'] = src.splitlines(keepends=True)
-                      changed = True
-          if not changed:
-              nb['cells'].insert(1, {
-                  'cell_type': 'markdown',
-                  'metadata': {},
-                  'source': [
-                      '## Implementation synchronization\n',
-                      '\n',
-                      'This notebook uses the Python modeling core synchronized with the complete GEE application. The Earth Engine JavaScript app contains additional UI and browser-download controls that are intentionally not duplicated in Python.\n'
-                  ]
-              })
+          sync_text = (
+              '## GEE ↔ Python synchronization\n\n'
+              'This notebook uses the Python modeling core synchronized with the complete Google Earth Engine application: the same datasets, 2017–2024 bounds, 2024 target year, 2023 fallback, class-stratified 70/30 split, 500-tree Random Forest, 0.95 bag fraction, seed search, validation metrics, and cultivated-class temporal rules. JavaScript-specific UI and paged direct-download controls remain in the GEE application.\n'
+          )
+          joined = '\n'.join(''.join(c.get('source', [])) for c in nb.get('cells', []))
+          if 'GEE ↔ Python synchronization' not in joined:
+              nb['cells'].insert(1, {'cell_type':'markdown','metadata':{},'source':sync_text.splitlines(keepends=True)})
           nb_path.write_text(json.dumps(nb, indent=1, ensure_ascii=False) + '\n', encoding='utf-8')
 
-          # Ensure connection-test defaults use the same personal project/assets already documented.
-          test_path = Path('python/01_test_gee_connection.py')
-          test_text = test_path.read_text(encoding='utf-8')
-          for expected in [
-              'practical-proxy-441422-n6',
-              'projects/practical-proxy-441422-n6/assets/Libya/Fezzan',
-              'projects/practical-proxy-441422-n6/assets/Libya/TD-V4',
-          ]:
-              if expected not in test_text:
-                  raise SystemExit(f'Connection test is not synchronized: {expected}')
+          # Strengthen static checks for cross-language parity.
+          tests = Path('tests/test_repository_structure.py')
+          t = tests.read_text(encoding='utf-8')
+          if 'test_python_and_gee_defaults_are_synchronized' not in t:
+              t += '''\n\ndef test_python_and_gee_defaults_are_synchronized():\n    js = (ROOT / "gee/automated_land_cover_app.js").read_text(encoding="utf-8")\n    py = (ROOT / "python/landcover_engine.py").read_text(encoding="utf-8")\n    assert "Assessment / priority year', 2024" in js\n    assert "target_year: int = 2024" in py\n    assert "Fallback year for the priority year', 2023" in js\n    assert "fallback_year: int = 2023" in py\n    assert "numberOfTrees: cfg.trees" in js\n    assert "trees: int = 500" in py\n    assert "bag_fraction: float = 0.95" in py\n    assert "class4Count.gte(2)" in js and "class4_count.gte(2)" in py\n    assert "class5Count.gte(2)" in js and "class5_count.gte(2)" in py\n'''
+          tests.write_text(t, encoding='utf-8')
 
-          # Version/citation metadata.
+          # Prepare citation metadata for the new synchronized release; DOI is added after Zenodo ingests it.
           cff = Path('CITATION.cff')
-          cff_text = cff.read_text(encoding='utf-8')
-          cff_text = cff_text.replace('version: 1.0.1', 'version: 1.0.2', 1)
-          cff.write_text(cff_text, encoding='utf-8')
+          c = cff.read_text(encoding='utf-8')
+          c = c.replace('version: 1.0.1', 'version: 1.0.2', 1)
+          import re
+          c = re.sub(r'^doi:.*\n', '', c, flags=re.M)
+          c = re.sub(r'^url:.*\n', 'url: "https://github.com/hamedsabzchi/libya-automated-land-cover-mapping"\n', c, count=1, flags=re.M)
+          cff.write_text(c, encoding='utf-8')
+
+          # README: keep the scientific text, update synchronization wording, and temporarily remove the old version DOI badge.
+          readme = Path('README.md')
+          r = readme.read_text(encoding='utf-8')
+          r = re.sub(r'^\[!\[DOI\].*?\n\n', '', r, count=1, flags=re.M)
+          r = r.replace('Zenodo DOI for the complete `v1.0.1` release: **10.5281/zenodo.22776249**\n\n', '')
+          sync_para = ('The Python engine and Colab notebook are synchronized with the complete GEE modeling core. '
+                       'They use the same datasets, year bounds/defaults, class scheme, Random Forest settings, seed-selection criterion, validation logic, and temporal cultivated-class rules. '
+                       'GEE-specific user-interface and direct browser-download controls are intentionally not duplicated in Python.\n\n')
+          anchor = '## Google Colab\n\n'
+          if sync_para not in r:
+              r = r.replace(anchor, '## Python ↔ GEE synchronization\n\n' + sync_para + anchor, 1)
+          r = r.replace('## Citation\n\nSoftware citation metadata are provided in `CITATION.cff`.\n',
+                        '## Citation\n\nSoftware citation metadata are provided in `CITATION.cff`. The DOI for `v1.0.2` will be added after Zenodo archives this synchronized release.\n', 1)
+          readme.write_text(r, encoding='utf-8')
           PY
 
       - name: Verify synchronized repository
@@ -105,7 +118,7 @@ jobs:
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           rm -f .github/workflows/sync-python-v102.yml
           git add -A
-          git commit -m 'Synchronize Python implementation and portfolio metadata'
+          git commit -m 'Synchronize Python, GEE, Colab, tests, and metadata'
           git push
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
@@ -118,5 +131,5 @@ jobs:
           gh release create v1.0.2 \
             --repo "$GITHUB_REPOSITORY" \
             --target "$CLEAN_SHA" \
-            --title "v1.0.2 — Synchronized Python and GEE" \
-            --notes "Synchronizes the Python reference implementation, Colab documentation, citation metadata, and repository documentation with the complete Google Earth Engine application. The Python code mirrors the modeling core and scientific logic; JavaScript-specific UI and direct browser-download controls remain in the GEE application."
+            --title "v1.0.2 — Synchronized GEE and Python" \
+            --notes "Synchronizes the Python engine, Colab notebook, static tests, and citation metadata with the complete GEE application. Scientific/modeling defaults and temporal rules are aligned across both implementations; JavaScript-only UI and browser-download controls remain specific to the GEE app."
