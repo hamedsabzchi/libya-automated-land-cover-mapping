@@ -19,7 +19,9 @@ EMBEDDING_COLLECTION = "GOOGLE/SATELLITE_EMBEDDING/V1/ANNUAL"
 # Modeling-core counterpart of the complete GEE application.
 # It mirrors predictor construction, stratified splitting, Random Forest settings,
 # temporal cultivated-class rules, validation metrics, and 2017-2024 data bounds.
-# JavaScript-only UI, paged browser-download links, and map widgets are intentionally not duplicated.
+# JavaScript-only UI, Random-Forest materialization for browser downloads, fixed-10 m
+# download-grid orchestration, paged links, north arrow, scale bar, and map widgets
+# are intentionally not duplicated in Python.
 SRTM_IMAGE = "USGS/SRTMGL1_003"
 EMBEDDING_FIRST_YEAR = 2017
 EMBEDDING_LAST_YEAR = 2024

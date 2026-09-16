@@ -5,7 +5,7 @@ type: software
 authors:
   - family-names: "Sabzchi Dehkharghani"
     given-names: "Hamed"
-version: 1.0.2
+version: 1.0.3
 repository-code: "https://github.com/hamedsabzchi/libya-automated-land-cover-mapping"
 url: "https://github.com/hamedsabzchi/libya-automated-land-cover-mapping"
 abstract: >-

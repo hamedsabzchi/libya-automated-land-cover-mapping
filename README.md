@@ -1,6 +1,6 @@
 # Libya Automated Land-Cover Mapping
 
-A reproducible Google Earth Engine workflow for guided automated land-cover mapping in Libya, with the default area of interest set to Fezzan. The project combines annual Google Satellite Embedding features with SRTM terrain predictors, class-stratified hold-out validation, per-year Random Forest models, multi-seed model selection, and explicit multi-year temporal decision rules.
+A reproducible Google Earth Engine and Python workflow for guided automated land-cover mapping in Libya, developed around a Fezzan case study while accepting user-supplied AOI and training assets. The project combines annual Google Satellite Embedding features with SRTM terrain predictors, class-stratified hold-out validation, per-year Random Forest models, multi-seed model selection, and explicit multi-year temporal decision rules.
 
 ## Project status
 
@@ -15,7 +15,7 @@ The repository contains the complete reference Google Earth Engine JavaScript ap
 - **AOI:** a user-supplied Earth Engine `FeatureCollection`
 - **Training data:** a user-supplied point `FeatureCollection` with integer land-cover labels
 
-The default AOI and training collections are personal Earth Engine assets. They are **external dependencies and are not bundled with this repository**. Users without access must provide replacement assets with the expected geometry and class field.
+For portability, the public GEE application intentionally starts with blank AOI and training-asset fields. Users paste accessible Earth Engine asset IDs at run time. The Python configuration retains author-specific example asset IDs as convenience defaults; those assets are **external dependencies and are not bundled with this repository**, so other users must provide equivalent replacements.
 
 ## Dataset availability and attribution
 
@@ -66,7 +66,7 @@ The selection score is the **minimum producer accuracy across included classes**
 
 ## Output
 
-The JavaScript application displays the selected map and creates a single-band UInt8 GeoTIFF export task to Google Drive in `LandCover_Exports`. The Python engine includes a matching Drive-export helper. The output class domain is **1–12**.
+The expanded JavaScript application displays the selected map, materializes the selected Random Forests as fixed decision-tree ensembles for reliable downloads, and generates direct GeoTIFF browser-download links. It supports full-map and tiled downloads, fixed-10 m row/column grids, paged link generation, automatic skipping of empty/outside-AOI cells, and dynamic map symbols. The Python engine mirrors the scientific/modeling core and provides an optional Google Drive export helper; JavaScript-specific browser-download/UI mechanics are intentionally not duplicated. The output class domain is **1–12**.
 
 ## Repository structure
 
@@ -91,7 +91,7 @@ libya-automated-land-cover-mapping/
 
 ## Python ↔ GEE synchronization
 
-The Python engine and Colab notebook are synchronized with the complete GEE modeling core. They use the same datasets, year bounds/defaults, class scheme, Random Forest settings, seed-selection criterion, validation logic, and temporal cultivated-class rules. GEE-specific user-interface and direct browser-download controls are intentionally not duplicated in Python.
+The Python engine and Colab notebook are synchronized with the expanded GEE **modeling core**. They use the same datasets, 2017–2024 year bounds, 2024/2023 target-fallback defaults, class scheme, Random Forest settings, seed-selection criterion, validation logic, and temporal cultivated-class rules. GEE-specific model materialization for browser downloads, fixed-10 m grid tiling, paged links, dynamic map symbols, and other UI controls are intentionally JavaScript-only.
 
 ## Google Colab
 
@@ -111,7 +111,7 @@ The training scope deliberately includes valid points outside the mapping AOI. T
 
 ## Reproducibility
 
-The public repository reproduces the computational logic, but the default personal Earth Engine AOI and training assets are external dependencies. Full reproduction therefore requires access to those assets or equivalent replacements. Public dataset identifiers and scientific references are retained for data provenance and do not imply authorship, sponsorship, or endorsement by their providers.
+The public repository reproduces the computational logic. The GEE app accepts user-supplied AOI/training asset IDs, while the Python configuration includes author-specific example defaults; the underlying AOI/training assets remain external dependencies. Full reproduction therefore requires accessible equivalent assets. Public dataset identifiers and scientific references are retained for data provenance and do not imply authorship, sponsorship, or endorsement by their providers.
 
 ## Author
 
@@ -123,7 +123,7 @@ This repository is an independent personal technical portfolio and research-deve
 
 ## Citation
 
-Software citation metadata are provided in `CITATION.cff`. The DOI for `v1.0.2` will be added after Zenodo archives this synchronized release.
+Software citation metadata are provided in `CITATION.cff`. The DOI for `v1.0.3` will be added after Zenodo archives this expanded synchronized release.
 
 ## Licensing note
 

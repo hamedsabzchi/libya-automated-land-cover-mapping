@@ -59,6 +59,20 @@ def test_complete_gee_script_is_not_shortened():
     assert "Empty/outside-AOI grid cells will be skipped automatically" in text
 
 
+def test_expanded_gee_features_are_preserved():
+    js = (ROOT / "gee/automated_land_cover_app.js").read_text(encoding="utf-8")
+    for token in (
+        "MATERIALIZE THE SELECTED RANDOM FOREST MODELS",
+        "DIRECT GEOTIFF DOWNLOADS FOR A PUBLISHED EARTH ENGINE APP",
+        "DYNAMIC NORTH ARROW AND SCALE BAR",
+        "SIMPLE ROWS / COLUMNS DOWNLOADS - FIXED 10 m PIXELS",
+        "getDownloadURL",
+    ):
+        assert token in js
+    assert "'Area of interest FeatureCollection asset',\n  ''" in js
+    assert "'Training points FeatureCollection asset',\n  ''" in js
+
+
 def test_notebook_is_valid_json_and_uses_safe_dynamic_import():
     path = ROOT / "python/02_landcover_colab.ipynb"
     notebook = json.loads(path.read_text(encoding="utf-8"))
