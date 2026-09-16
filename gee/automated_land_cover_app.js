@@ -1,6 +1,8 @@
 // ============================================================================
 // GUIDED AUTOMATED LAND-COVER MAPPING APP
-// By: Hamed Sabzchi Dehkharghani 
+// By: Hamed Sabzchi Dehkharghani - FAO-NSL Geospatial Unit
+// Geospatial Unit - Land and Water Division (NSL)
+// Food and Agriculture Organization of the United Nations (FAO HQ)
 // ============================================================================
 
 ui.root.clear();
@@ -90,22 +92,27 @@ function clean(value) {
   return String(value).trim().replace(/[^A-Za-z0-9_-]+/g, '_');
 }
 
-
+// ============================================================================
+// USER INTERFACE
+// ============================================================================
 
 control.add(ui.Label('Automated Land-Cover Mapping', {
   fontWeight: 'bold', fontSize: '22px', color: '#1b5e20'
 }));
 
-control.add(note('By: Hamed Sabzchi Dehkharghani'));
+control.add(note(
+  'By: Hamed Sabzchi Dehkharghani - FAO-NSL Geospatial Unit; ' +
+  'Food and Agriculture Organization of the United Nations'
+));
 
 control.add(title('1. Required assets'));
 var aoiBox = input(
   'Area of interest FeatureCollection asset',
-  'projects/practical-proxy-441422-n6/assets/Libya/Fezzan'
+  ''
 );
 var trainBox = input(
   'Training points FeatureCollection asset',
-  'projects/practical-proxy-441422-n6/assets/Libya/TD-V4'
+  ''
 );
 var classBox = input('Class field in training points', 'lc_code');
 
@@ -116,9 +123,9 @@ control.add(note(
 ));
 
 control.add(title('2. Assessment period'));
-var yearBox = input('Assessment / priority year', 2024);
+var yearBox = input('Assessment / priority year', 2025);
 var windowBox = input('Number of annual maps in temporal majority', 5);
-var fallbackBox = input('Fallback year for the priority year', 2023);
+var fallbackBox = input('Fallback year for the priority year', 2024);
 
 control.add(title('3. Model controls'));
 var targetBox = ui.Textbox({value: '60'});       // Hidden; preserved internally.
@@ -177,10 +184,12 @@ control.add(downloadPanel);
 control.add(title('5. Results'));
 control.add(resultsPanel);
 
-
+// ============================================================================
+// CONFIGURATION AND MODEL
+// ============================================================================
 
 function readConfig() {
-  var target = n(yearBox.getValue(), 'Assessment year', 2017, 2024);
+  var target = n(yearBox.getValue(), 'Assessment year', 2017, 2100);
   var count = Math.round(n(windowBox.getValue(), 'Year count', 1, 20));
   var years = [];
   for (var i = 0; i < count; i++) years.push(target - i);
@@ -192,7 +201,7 @@ function readConfig() {
     targetYear: target,
     years: years,
     fallback: Math.round(n(
-      fallbackBox.getValue(), 'Fallback year', 2017, 2024
+      fallbackBox.getValue(), 'Fallback year', 2017, 2100
     )),
     targetAccuracy: n(targetBox.getValue(), 'Target accuracy', 0, 100),
     excluded: Math.round(n(
@@ -318,7 +327,10 @@ function makeMap(train, cfg, seed, roi, embeddings, terrain) {
   };
 }
 
-
+// ============================================================================
+// MATERIALIZE THE SELECTED RANDOM FOREST MODELS
+// This removes sample extraction and classifier training from download requests.
+// ============================================================================
 
 function temporalDecisionFromYearly(yearlyDictionary, cfg) {
   var stack = ee.Image.cat(cfg.years.map(function(year) {
@@ -389,7 +401,9 @@ function materializeBestModel(best, cfg, roi, embeddings, terrain) {
   });
 }
 
-
+// ============================================================================
+// RESULTS AND MAP DISPLAY
+// ============================================================================
 
 function legend() {
   var panel = ui.Panel({
@@ -743,7 +757,9 @@ function run() {
 
 runButton.onClick(run);
 
-
+// ============================================================================
+// DIRECT GEOTIFF DOWNLOADS FOR A PUBLISHED EARTH ENGINE APP
+// ============================================================================
 
 function lcRequireCompletedMap() {
   if (!APP.finalMap || !APP.roi || !APP.cfg) {
@@ -1197,6 +1213,9 @@ tileButton.onClick(function() {
   });
 });
 
+// ============================================================================
+// DYNAMIC NORTH ARROW AND SCALE BAR
+// ============================================================================
 
 function addDynamicMapSymbols(mapWidget) {
   if (!mapWidget) throw new Error('A valid ui.Map must be supplied.');
@@ -1398,6 +1417,9 @@ function addDynamicMapSymbols(mapWidget) {
 dynamicMapSymbols = addDynamicMapSymbols(map);
 
 
+// ============================================================================
+// SIMPLE ROWS / COLUMNS DOWNLOADS - FIXED 10 m PIXELS
+// ============================================================================
 
 
 var SIMPLE10 = {
@@ -1419,7 +1441,10 @@ function simple10HasMap() {
 }
 function simple10Current(token) { return token === SIMPLE10.token && simple10HasMap(); }
 
-
+// Keep every original model/configuration field. Download-only row/column
+// validation is performed when generating links, independently of training.
+// Temporarily neutralize the original 100-cell input limit inside its unchanged
+// synchronous parser; restore both textboxes without firing change events.
 var simple10OriginalReadConfig = readConfig;
 readConfig = function() {
   var rowText = rowsBox.getValue(), colText = colsBox.getValue(), cfg;
@@ -1536,6 +1561,8 @@ function simple10Plan(ring, crs, layout) {
     if (!point || !isFinite(point[0]) || !isFinite(point[1])) throw new Error('The area boundary is invalid.');
     xs.push(Number(point[0])); ys.push(Number(point[1]));
   });
+  // A one-metre guard accommodates the bounds transformation error tolerance;
+  // snap OUTWARDS to whole 10 m pixel edges so boundary pixels are not omitted.
   var x0 = Math.floor((Math.min.apply(null, xs) - 1) / 10) * 10;
   var east = Math.ceil((Math.max.apply(null, xs) + 1) / 10) * 10;
   var south = Math.floor((Math.min.apply(null, ys) - 1) / 10) * 10;
@@ -1744,6 +1771,7 @@ function simple10Click() {
 }
 exportButton.onClick(simple10Click);
 
+// Rows/columns/name changes refresh only downloads. They do not retrain the map.
 [rowsBox, colsBox, prefixBox].forEach(function(widget) {
   widget.onChange(function() {
     simple10Reset(simple10HasMap() ? 'Download settings changed. Generate new links for this grid.' :
@@ -1789,7 +1817,7 @@ var simple10OriginalSetStatus = setStatus;
 setStatus = function(message, color) { simple10OriginalSetStatus(message, color); simple10Sync(); };
 simple10Reset('Run automated mapping, choose rows and columns, then generate download links.');
 
-
+// END OF COMPLETE MAPPING APP WITH SIMPLE FIXED-10 m DOWNLOADS
 
 
 var LC10_CACHE = {
@@ -1807,6 +1835,9 @@ materializeBestModel = function(best, cfg, roi, embeddings, terrain) {
     return;
   }
   setStatus('Preparing the selected map at 10 m...', '#0d47a1');
+  // best.map and best.yearly already come from the selected/validated seed.
+  // Keep their native classifier references. Do NOT call explain().evaluate(),
+  // export tree text to the browser, or rebuild a decisionTreeEnsemble here.
   finish(best, cfg, roi);
 };
 
@@ -1871,6 +1902,8 @@ function cache10Read(assetId, cfg, done) {
   });
 }
 
+// The only way this script writes an EE asset is the explicit owner flag above.
+// Never attempt owner writes from the default published-app path.
 function cache10Prepare(best, cfg, roi) {
   if (!LC10_CACHE.prepareInCodeEditor || CACHE10.preparing || CACHE10.loadedAsset) return;
   var assetId = cache10AssetId();
@@ -1924,11 +1957,15 @@ function cache10Prepare(best, cfg, roi) {
           });
           var region = ee.Geometry.Rectangle([p.x0, p.yTop - p.height * 10,
             p.x0 + p.width * 10, p.yTop], ee.Projection(crs), false);
+          // These are the public ee.data.startProcessing task parameters used
+          // by the official JS batch API: element is an EE Image, not tree JSON.
           var task = {type: 'EXPORT_IMAGE', element: stack, assetId: assetId,
             description: clean('prepare_lc10_' + cfg.targetYear + '_seed' + best.seed),
             crs: crs, crs_transform: [10, 0, p.x0, 0, -10, p.yTop], region: region,
             maxPixels: 1e13, shardSize: 128, pyramidingPolicy: {'.default': 'MODE'}, overwrite: false};
           setStatus('Owner preparation: starting the 10 m batch export...', '#0d47a1');
+          // Do not silently retry an uncertain submission: it may already have
+          // started on the server. A null request ID is explicitly supported.
           ee.data.startProcessing(null, task, function(response, startError) {
             if (!cache10ValidRun(generation, key)) return;
             if (startError || !response || !response.name) {
@@ -2029,6 +2066,8 @@ simple10Sync = function() {
   } else if (!APP.running) { runButton.setDisabled(false); }
 };
 
+// Prepared images can use the requested row/column cells directly when they fit
+// the actual download limits. Live model requests keep computation headroom.
 function cache10Shape(width, height, prepared) {
   var stepX = prepared ? Math.min(width, CACHE10.MAX_SIDE) : Math.min(width, SIMPLE10.EDGE);
   var stepY = prepared ? Math.min(height, CACHE10.MAX_SIDE, Math.floor(CACHE10.MAX_PIXELS / stepX)) : Math.min(height, SIMPLE10.EDGE);
@@ -2039,9 +2078,12 @@ simple10Plan = function(ring, crs, layout) {
   var p = cache10OriginalPlan(ring, crs, layout);
   p.prepared = !!CACHE10.loadedAsset;
   if (!p.prepared) return p;
+  // Use the saved raster's verified extent and grid, not a new AOI reprojection.
   p.x0 = CACHE10.grid.x0; p.yTop = CACHE10.grid.yTop;
   p.width = CACHE10.grid.width; p.height = CACHE10.grid.height; p.crs = CACHE10.grid.crs;
   if (layout.cols > p.width || layout.rows > p.height) throw new Error('Use fewer rows or columns for this 10 m raster.');
+  // Only two column widths and two row heights are possible. Count all files
+  // in four combinations without allocating one object for every grid cell.
   var smallW = Math.floor(p.width / p.cols), extraW = p.width % p.cols;
   var smallH = Math.floor(p.height / p.rows), extraH = p.height % p.rows;
   p.files = 0;
@@ -2073,7 +2115,10 @@ simple10TakeNext = function() {
   return tile;
 };
 
-
+// Reuse the entire tested queue by changing only its per-request image/size
+// boundary. The source of simple10Next is retained above; this wrapper scopes
+// its size guard to the current verified plan, and restores it immediately.
+// The actual asynchronous request is constructed synchronously by that queue.
 var cache10Next = simple10Next;
 simple10Next = function(token) {
   var oldEdge = SIMPLE10.EDGE;
@@ -2112,12 +2157,21 @@ for (var cache10HintIndex = 0; cache10HintIndex < simple10Host.widgets().length(
 }
 simple10Sync();
 
+// END: COMPLETE APP, COMPACT MODEL REQUESTS, OPTIONAL PREPARED 10 m DOWNLOADS
+
+// ============================================================================
+// FINAL ACTIVE DOWNLOAD MODE: DIRECT 10 m DOWNLOAD LINKS, NO EXTERNAL SERVICE
+// ============================================================================
+
+
+// Restore the direct-download action as the final active button behaviour.
 exportButton.unlisten();
 exportButton.onClick(simple10Click);
 tileButton.unlisten();
 tileButton.setDisabled(true);
 tileButton.style().set('shown', false);
 
+// Restore clear direct-download wording for non-expert App users.
 function direct10FinalSync() {
   var modelReady = simple10HasMap();
   var blocked = APP.running || CACHE10.preparing;
@@ -2144,6 +2198,7 @@ function direct10FinalSync() {
 }
 simple10Sync = direct10FinalSync;
 
+// Replace obsolete one-ZIP/service wording in the visible guidance.
 for (var direct10UiIndex = 0;
      direct10UiIndex < control.widgets().length();
      direct10UiIndex++) {
@@ -2247,8 +2302,10 @@ simple10SummaryText = function() {
     ' download files at 10 m. No hidden parts. Outside/missing pixels are 0; classes are 1-12.';
 };
 
+// Keep all requested links visible together when the exact count is reasonable.
 SIMPLE10.BATCH = SIMPLE10.MAX_GRID * SIMPLE10.MAX_GRID;
 
+// Final UI wording.
 for (var exactCountUiIndex = 0;
      exactCountUiIndex < control.widgets().length();
      exactCountUiIndex++) {
@@ -2277,9 +2334,14 @@ simple10Reset(
     'Run automated mapping. Rows x columns will equal the exact number of 10 m files.'
 );
 simple10Sync();
+// END FINAL EXACT-TILE-COUNT SAFETY OVERRIDE
+// ============================================================================
 
+// ============================================================================
+// FINAL ACTIVE EXPORT: EXACT ROWS x COLUMNS AS GOOGLE DRIVE GEOTIFF TASKS
+// ============================================================================
 
-var EXACT_DRIVE_FOLDER = 'LandCover_Exports';
+var EXACT_DRIVE_FOLDER = 'FAO_LandCover_Exports';
 var EXACT_EXPORT = {busy: false, generation: 0};
 
 function exactExportLayout() {
@@ -2460,10 +2522,12 @@ function exactExportToDrive() {
   });
 }
 
+// Make this the only active download/export action.
 exportButton.unlisten();
 exportButton.onClick(exactExportToDrive);
 tileButton.unlisten();
 
+// Make visible guidance consistent with the active workflow.
 for (var exactExportUiIndex = 0;
      exactExportUiIndex < control.widgets().length();
      exactExportUiIndex++) {
@@ -2482,6 +2546,7 @@ for (var exactExportUiIndex = 0;
   }
 }
 
+// Override resets so they do not restore immediate-download wording.
 var exactExportPreviousReset = simple10Reset;
 simple10Reset = function(message) {
   exactExportPreviousReset(message);
@@ -2501,13 +2566,21 @@ SIMPLE10.pending = [];
 SIMPLE10.active = null;
 simple10Reset();
 exactExportSetUi();
+// END FINAL ACTIVE EXACT GOOGLE DRIVE EXPORT
+// ============================================================================
 
-var FINAL_DIRECT = {BATCH_SIZE: 20, DEFAULT_ROWS: 53, DEFAULT_COLS: 131};
+// ============================================================================
+// FINAL ACTIVE MODE: INTERFACE-ONLY DIRECT DOWNLOADS, NO TASKS PANEL
+// ============================================================================
 
+var FINAL_DIRECT = {BATCH_SIZE: 20, DEFAULT_ROWS: 1, DEFAULT_COLS: 1};
+
+// Use the safe practical defaults in the published interface.
 rowsBox.setValue(String(FINAL_DIRECT.DEFAULT_ROWS), false);
 colsBox.setValue(String(FINAL_DIRECT.DEFAULT_COLS), false);
 SIMPLE10.BATCH = FINAL_DIRECT.BATCH_SIZE;
 
+// Final button and widget state. This deliberately replaces the Drive callback.
 function finalDirectSync() {
   var blocked = APP.running || CACHE10.preparing || SIMPLE10.busy;
   exportButton.setDisabled(blocked || !simple10HasMap());
@@ -2533,7 +2606,9 @@ function finalDirectSync() {
 }
 simple10Sync = finalDirectSync;
 
-
+// Ensure rows x columns is the exact file count and reject unsafe tile sizes.
+// The calculations use one byte per UInt8 classification pixel and the official
+// immediate-download limits already documented in this complete script.
 var FINAL_DIRECT_MAX_SIDE = 10000;
 var FINAL_DIRECT_MAX_PIXELS = 24 * 1024 * 1024;
 var finalDirectExtentPlan = cache10OriginalPlan;
@@ -2564,13 +2639,13 @@ simple10Plan = function(ring, crs, layout) {
     throw new Error(
       'The selected ' + layout.rows + ' x ' + layout.cols +
       ' grid is too large for direct 10 m browser downloads. Use at least ' +
-      suggestedRows + ' rows x ' + suggestedCols + ' columns. ' +
-      'The default 53 x 131 grid is recommended for this AOI.'
+      suggestedRows + ' rows x ' + suggestedCols + ' columns.'
     );
   }
   return p;
 };
 
+// Exactly one downloadable file per requested grid cell. No hidden parts.
 simple10Part = function(root, index) {
   if (index !== 0) {
     throw new Error('Only one GeoTIFF is allowed for each requested grid cell.');
@@ -2605,6 +2680,7 @@ simple10SummaryText = function() {
     'Classes are 1-12; outside/missing pixels are 0.';
 };
 
+// Clear non-expert guidance and remove all Tasks/Drive wording from the active UI.
 for (var finalDirectUiIndex = 0;
      finalDirectUiIndex < control.widgets().length();
      finalDirectUiIndex++) {
@@ -2615,9 +2691,9 @@ for (var finalDirectUiIndex = 0;
         finalDirectText.indexOf('Choose rows and columns') === 0 ||
         finalDirectText.indexOf('The published App generates direct GeoTIFF') === 0) {
       finalDirectWidget.setValue(
-        'Use the recommended 53 rows x 131 columns for this large AOI. ' +
-        'The App generates direct 10 m GeoTIFF ZIP links in pages of 20. ' +
-        'The user needs only this interface; no Tasks panel or Google Drive is required.'
+        'Choose rows and columns for the requested AOI. The App generates direct 10 m ' +
+        'GeoTIFF ZIP links in pages of 20. The final flexible-AOI logic calculates a safe ' +
+        'minimum grid from the actual AOI. No Tasks panel or Google Drive is required.'
       );
     }
   }
@@ -2638,12 +2714,14 @@ for (var finalDirectHintIndex = 0;
   }
 }
 
+// Rebind the only active download button after every prior override.
 exportButton.unlisten();
 exportButton.onClick(simple10Click);
 tileButton.unlisten();
 tileButton.setDisabled(true);
 tileButton.style().set('shown', false);
 
+// Reset stale Drive/task state and start with a clean interface-only workflow.
 EXACT_EXPORT.busy = false;
 EXACT_EXPORT.generation++;
 SIMPLE10.token++;
@@ -2663,11 +2741,17 @@ simple10Links.clear();
 simple10Progress.setValue('');
 simple10Summary.setValue(
   simple10HasMap() ?
-    'Map ready. Recommended grid: 53 rows x 131 columns. Generate the first 20 direct links.' :
-    'Run automated mapping. Recommended download grid: 53 rows x 131 columns.'
+    'Map ready. Generate the first 20 direct download links.' :
+    'Run automated mapping. A safe download grid will be calculated for the actual AOI.'
 );
 simple10Mount();
 finalDirectSync();
+// END FINAL INTERFACE-ONLY DIRECT-DOWNLOAD APP
+// ============================================================================
+
+// ============================================================================
+// FINAL CORRECTION: REMOVE THE OBSOLETE 1024-PIXEL CLIENT GUARD
+// ============================================================================
 
 SIMPLE10.EDGE = FINAL_DIRECT_MAX_SIDE;
 SIMPLE10.MIN_EDGE = 64;
@@ -2699,6 +2783,12 @@ simple10Mount();
 exportButton.unlisten();
 exportButton.onClick(simple10Click);
 finalDirectSync();
+// END FINAL CORRECTION
+// ============================================================================
+
+// ============================================================================
+// FINAL CORRECTION: SKIP OUTSIDE-AOI TILES AND VERIFY CLASS DATA BEFORE LINKING
+// ============================================================================
 
 var VALID10 = {
   empty: 0,
@@ -2904,4 +2994,924 @@ exportButton.unlisten();
 exportButton.onClick(simple10Click);
 finalDirectSync();
 // END FINAL VERIFIED CLASS-DATA DOWNLOAD CORRECTION
+// ============================================================================
+
+// ============================================================================
+// FINAL CORRECTION: FLEXIBLE EARTH ENGINE ASSET PATHS + SMALL-AOI GRID
+// ============================================================================
+
+function flexibleAssetId(value, fieldName) {
+  var text = String(value || '').trim();
+  text = text.replace(/^[\s"'`]+|[\s"'`]+$/g, '');
+  text = text.replace(/^https?:\/\/code\.earthengine\.google\.com\/\?asset=/i, '');
+  try { text = decodeURIComponent(text); } catch (ignoreDecodeError) {}
+
+  var projectMatch = text.match(/projects\/[^\s"'`]+\/assets\/[^\s"'`]+/i);
+  var legacyProjectMatch = text.match(/projects\/earthengine-legacy\/assets\/[^\s"'`]+/i);
+  var userMatch = text.match(/users\/[^\s"'`]+/i);
+
+  if (legacyProjectMatch) text = legacyProjectMatch[0];
+  else if (projectMatch) text = projectMatch[0];
+  else if (userMatch) text = userMatch[0];
+
+  text = text.replace(/[\s,;]+$/g, '');
+  if (!/^(projects\/[^/]+\/assets\/.+|projects\/earthengine-legacy\/assets\/.+|users\/.+)$/.test(text)) {
+    throw new Error(
+      fieldName + ' is not a valid Earth Engine asset ID. Paste a projects/.../assets/... or users/... path.'
+    );
+  }
+  return text;
+}
+
+var flexibleAssetReadConfig = readConfig;
+readConfig = function() {
+  var cfg = flexibleAssetReadConfig();
+  cfg.aoi = flexibleAssetId(cfg.aoi, 'AOI asset');
+  cfg.training = flexibleAssetId(cfg.training, 'Training asset');
+  return cfg;
+};
+
+// Normalize pasted paths in the visible boxes without firing change callbacks.
+function normalizeVisibleAssetBoxes() {
+  try { aoiBox.setValue(flexibleAssetId(aoiBox.getValue(), 'AOI asset'), false); }
+  catch (ignoreAoiNormalizationError) {}
+  try { trainBox.setValue(flexibleAssetId(trainBox.getValue(), 'Training asset'), false); }
+  catch (ignoreTrainingNormalizationError) {}
+}
+
+// For very small AOIs, an unnecessarily large grid can exceed the
+// number of available 10 m pixel rows/columns. After a map is ready, reduce only
+// those download-grid defaults when necessary. User-entered smaller values stay.
+function flexibleAdjustGridForAoi(roi) {
+  roi.geometry().centroid(1, ee.Projection('EPSG:4326')).coordinates().evaluate(
+    function(coords, centreError) {
+      if (centreError || !coords || coords.length < 2 || !APP.finalMap) return;
+      var crs;
+      try { crs = simple10Utm(Number(coords[0]), Number(coords[1])); }
+      catch (projectionError) { return; }
+      roi.geometry().bounds(1, ee.Projection(crs)).coordinates().evaluate(
+        function(polygons, boundsError) {
+          if (boundsError || !polygons || !polygons[0] || !APP.finalMap) return;
+          try {
+            var ring = polygons[0];
+            var xs = [], ys = [];
+            ring.forEach(function(point) {
+              xs.push(Number(point[0]));
+              ys.push(Number(point[1]));
+            });
+            var pixelCols = Math.max(1, Math.ceil((Math.max.apply(null, xs) - Math.min.apply(null, xs) + 2) / 10));
+            var pixelRows = Math.max(1, Math.ceil((Math.max.apply(null, ys) - Math.min.apply(null, ys) + 2) / 10));
+            var currentRows = Math.max(1, Math.floor(Number(rowsBox.getValue()) || 1));
+            var currentCols = Math.max(1, Math.floor(Number(colsBox.getValue()) || 1));
+            var adjustedRows = Math.min(currentRows, pixelRows);
+            var adjustedCols = Math.min(currentCols, pixelCols);
+            if (adjustedRows !== currentRows || adjustedCols !== currentCols) {
+              rowsBox.setValue(String(adjustedRows), false);
+              colsBox.setValue(String(adjustedCols), false);
+              simple10Reset(
+                'Map ready. The download grid was adjusted to ' + adjustedRows +
+                ' rows x ' + adjustedCols + ' columns for this small AOI.'
+              );
+            }
+            finalDirectSync();
+          } catch (ignoreGridAdjustmentError) {}
+        }
+      );
+    }
+  );
+}
+
+var flexibleAssetFinish = finish;
+finish = function(best, cfg, roi) {
+  flexibleAssetFinish(best, cfg, roi);
+  normalizeVisibleAssetBoxes();
+  flexibleAdjustGridForAoi(roi);
+};
+
+// Rebind the final RUN button so the latest run wrapper and this correction are active.
+var flexibleAssetRun = run;
+runButton.unlisten();
+runButton.onClick(function() {
+  normalizeVisibleAssetBoxes();
+  flexibleAssetRun();
+});
+
+// Keep the final direct-download action active.
+exportButton.unlisten();
+exportButton.onClick(simple10Click);
+finalDirectSync();
+// END FINAL FLEXIBLE-ASSET CORRECTION
+// ============================================================================
+
+// ============================================================================
+// FINAL CORRECTION: AOI-INDEPENDENT NATIONAL TRAINING AND SMALL-AOI MAPPING
+// ============================================================================
+
+function robustEmbeddingForYear(year, geometry, cfg) {
+  var primary = getEmbedding(year, geometry);
+  if (year === cfg.targetYear) {
+    primary = primary.unmask(getEmbedding(cfg.fallback, geometry));
+  }
+  return primary;
+}
+
+makeMap = function(train, cfg, seed, roi, ignoredEmbeddings, terrain) {
+  var yearly = {};
+  var yearlyForValidation = {};
+  var classifiers = {};
+  var trainingFootprint = train.geometry().bounds(1);
+  var aoiFootprint = roi.geometry().bounds(1);
+
+  cfg.years.forEach(function(year) {
+    var nationalPredictors = ee.Image.cat([
+      robustEmbeddingForYear(year, trainingFootprint, cfg), terrain
+    ]);
+    var aoiPredictors = ee.Image.cat([
+      robustEmbeddingForYear(year, aoiFootprint, cfg), terrain
+    ]);
+
+    var predictorBands = nationalPredictors.bandNames();
+    var samples = nationalPredictors.sampleRegions({
+      collection: train,
+      properties: [cfg.classField],
+      scale: cfg.scale,
+      tileScale: cfg.tileScale,
+      geometries: false
+    }).filter(ee.Filter.notNull(predictorBands));
+
+    var classifier = ee.Classifier.smileRandomForest({
+      numberOfTrees: cfg.trees,
+      bagFraction: cfg.bag,
+      seed: seed
+    }).train({
+      features: samples,
+      classProperty: cfg.classField,
+      inputProperties: predictorBands
+    });
+
+    classifiers[year] = classifier;
+    // This image is used only to sample the national validation points.
+    yearlyForValidation[year] = nationalPredictors
+      .classify(classifier)
+      .rename('c' + year);
+    // This image is used only for the requested AOI output.
+    yearly[year] = aoiPredictors
+      .classify(classifier)
+      .rename('c' + year)
+      .clip(roi);
+  });
+
+  function robustTemporalDecision(yearlyDictionary) {
+    var stack = ee.Image.cat(cfg.years.map(function(year) {
+      return yearlyDictionary[year].rename('y' + year);
+    }));
+    var priority = stack.select('y' + cfg.targetYear);
+    var standard = stack.reduce(ee.Reducer.mode());
+    var class4Count = ee.Image(0);
+    var class5Count = ee.Image(0);
+    cfg.years.forEach(function(year) {
+      class4Count = class4Count.add(stack.select('y' + year).eq(4));
+      class5Count = class5Count.add(stack.select('y' + year).eq(5));
+    });
+    return standard
+      .where(priority.eq(4).or(priority.eq(5)), priority)
+      .where(class5Count.gte(2), 5)
+      .where(class4Count.gte(2), 4)
+      .where(class4Count.gte(2).and(class5Count.gte(2)), priority)
+      .rename('classification');
+  }
+
+  return {
+    finalMap: robustTemporalDecision(yearly).clip(roi),
+    validationMap: robustTemporalDecision(yearlyForValidation),
+    yearly: yearly,
+    classifiers: classifiers
+  };
+};
+
+// Rebind RUN after replacing makeMap so this final implementation is used.
+runButton.unlisten();
+runButton.onClick(function() {
+  normalizeVisibleAssetBoxes();
+  flexibleAssetRun();
+});
+exportButton.unlisten();
+exportButton.onClick(simple10Click);
+finalDirectSync();
+// END FINAL AOI-INDEPENDENT MODEL CORRECTION
+// ============================================================================
+
+// ============================================================================
+// FINAL FIX: USER-SUPPLIED AOI/TRAINING ASSETS FROM ANY EARTH ENGINE PROJECT
+// ============================================================================
+
+
+// Make the visible labels explicit so users know the boxes are not owner-only.
+for (var userAssetUiIndex = 0;
+     userAssetUiIndex < control.widgets().length();
+     userAssetUiIndex++) {
+  var userAssetUiWidget = control.widgets().get(userAssetUiIndex);
+  if (userAssetUiWidget && typeof userAssetUiWidget.getValue === 'function') {
+    var userAssetUiText = String(userAssetUiWidget.getValue());
+    if (userAssetUiText === 'Area of interest FeatureCollection asset') {
+      userAssetUiWidget.setValue(
+        'AOI FeatureCollection asset (any readable Earth Engine project)'
+      );
+    } else if (userAssetUiText === 'Training points FeatureCollection asset') {
+      userAssetUiWidget.setValue(
+        'Training FeatureCollection asset (any readable Earth Engine project)'
+      );
+    }
+  }
+}
+
+// Add clear guidance without changing any model, class, validation, mapping,
+// temporal, visualization, or download logic.
+control.add(note(
+  'Asset paths are NOT limited to this App owner\'s project. Examples: ' +
+  'projects/my-project/assets/my-folder/my-aoi or users/my-user/my-training.\n' +
+  'For a published Earth Engine App, an asset owned by another user must be ' +
+  'publicly readable or explicitly shared with this App. Private assets that ' +
+  'are visible only to the visitor cannot be read by the published App.'
+));
+
+function userAssetReadableFeatureCollection(assetId, fieldName, callback) {
+  var id;
+  try {
+    id = flexibleAssetId(assetId, fieldName);
+  } catch (formatError) {
+    callback(null, formatError);
+    return;
+  }
+
+  // Use an actual FeatureCollection read instead of checking for a particular
+  // project/folder prefix. This simultaneously checks syntax, access, and type.
+  try {
+    ee.FeatureCollection(id).limit(1).size().evaluate(function(size, error) {
+      if (error) {
+        callback(null, new Error(
+          fieldName + ' could not be read. The path may be wrong, the asset may ' +
+          'not be a FeatureCollection, or the asset is private and has not been ' +
+          'shared with this published App. Earth Engine message: ' +
+          lcErrorText(error)
+        ));
+        return;
+      }
+      callback(id, null);
+    });
+  } catch (readError) {
+    callback(null, new Error(
+      fieldName + ' could not be opened as a FeatureCollection: ' +
+      lcErrorText(readError)
+    ));
+  }
+}
+
+function runWithUserAssets() {
+  if (APP.running) return;
+
+  var aoiText = aoiBox.getValue();
+  var trainingText = trainBox.getValue();
+
+  setStatus('Checking AOI asset path and App read permission...', '#0d47a1');
+
+  userAssetReadableFeatureCollection(aoiText, 'AOI asset', function(aoiId, aoiError) {
+    if (aoiError) {
+      setStatus('AOI input error: ' + lcErrorText(aoiError), '#b71c1c');
+      return;
+    }
+
+    // Store the normalized ID so all existing downstream code receives exactly
+    // the visitor's asset path rather than any owner-specific hard-coded path.
+    aoiBox.setValue(aoiId, false);
+
+    setStatus('Checking training asset path and App read permission...', '#0d47a1');
+
+    userAssetReadableFeatureCollection(
+      trainingText,
+      'Training asset',
+      function(trainingId, trainingError) {
+        if (trainingError) {
+          setStatus(
+            'Training input error: ' + lcErrorText(trainingError),
+            '#b71c1c'
+          );
+          return;
+        }
+
+        trainBox.setValue(trainingId, false);
+        setStatus('Assets are readable. Starting automated mapping...', '#0d47a1');
+
+        // Use the complete active mapping workflow already defined above.
+        // Nothing in the classifier, validation, yearly maps, temporal decision,
+        // results, legend, or direct-download logic is replaced here.
+        flexibleAssetRun();
+      }
+    );
+  });
+}
+
+// This is the last RUN binding and therefore the active one.
+runButton.unlisten();
+runButton.onClick(runWithUserAssets);
+
+// Keep the final direct-download action from the complete app unchanged.
+exportButton.unlisten();
+exportButton.onClick(simple10Click);
+finalDirectSync();
+
+// END FINAL USER-SUPPLIED-ASSET FIX
+// ============================================================================
+
+
+
+var FLEXIBLE_RUN_STATE = {token: 0, lastSeedError: null};
+
+function flexibleResetDownloadState(message) {
+  SIMPLE10.token++;
+  APP.downloadGeneration++;
+  SIMPLE10.busy = false;
+  SIMPLE10.plan = null;
+  SIMPLE10.rootIndex = 0;
+  SIMPLE10.partIndex = 0;
+  SIMPLE10.pending = [];
+  SIMPLE10.active = null;
+  SIMPLE10.ready = 0;
+  SIMPLE10.batchReady = 0;
+  SIMPLE10.nextBatch = false;
+  SIMPLE10.failed = false;
+  SIMPLE10.finished = false;
+  simple10Links.clear();
+  simple10Progress.setValue('');
+  if (message !== undefined && message !== null) {
+    simple10Summary.setValue(String(message));
+  }
+  simple10Mount();
+  finalDirectSync();
+}
+
+// Override the stale earlier reset that restored Google Drive wording.
+var flexiblePreviousSimple10Reset = simple10Reset;
+simple10Reset = function(message) {
+  try { flexiblePreviousSimple10Reset(message); } catch (ignoreOldResetError) {}
+  simple10Summary.setValue(
+    message || (simple10HasMap() ?
+      'Map ready. Generate direct 10 m GeoTIFF download links.' :
+      'Run automated mapping first. Direct 10 m GeoTIFF links will be generated in this interface.')
+  );
+  finalDirectSync();
+};
+
+// Remove Fezzan-specific wording from any existing note widget.
+for (var flexibleUiIndex = 0; flexibleUiIndex < control.widgets().length(); flexibleUiIndex++) {
+  var flexibleUiWidget = control.widgets().get(flexibleUiIndex);
+  if (flexibleUiWidget && typeof flexibleUiWidget.getValue === 'function') {
+    var flexibleUiText = String(flexibleUiWidget.getValue());
+    if (flexibleUiText.indexOf('Use the recommended 53 rows x 131 columns') === 0) {
+      flexibleUiWidget.setValue(
+        'Choose rows and columns for the requested AOI. After mapping, the App automatically ' +
+        'raises an unsafe grid to a safe minimum for direct 10 m GeoTIFF downloads and reduces ' +
+        'an unnecessarily large default grid for small AOIs. Links are shown in pages of 20; ' +
+        'no Tasks panel or Google Drive is required.'
+      );
+    }
+  }
+}
+
+// Start neutral instead of implying that one owner AOI controls the App.
+aoiBox.setValue(String(aoiBox.getValue() || '').trim(), false);
+trainBox.setValue(String(trainBox.getValue() || '').trim(), false);
+rowsBox.setValue(String(Math.max(1, Math.floor(Number(rowsBox.getValue()) || 1))), false);
+colsBox.setValue(String(Math.max(1, Math.floor(Number(colsBox.getValue()) || 1))), false);
+
+// Use the calculated direct-download limits for every AOI. This replaces the
+// earlier fixed "53 x 131 recommended" message while retaining exact one-file-
+// per-cell behaviour.
+var flexibleBasePlan = simple10Plan;
+simple10Plan = function(ring, crs, layout) {
+  try {
+    return flexibleBasePlan(ring, crs, layout);
+  } catch (planError) {
+    var message = lcErrorText(planError).replace(
+      /\s*The default 53 x 131 grid is recommended for this AOI\.?/gi,
+      ''
+    );
+    throw new Error(message);
+  }
+};
+
+function flexibleMinimumSafeGrid(pixelRows, pixelCols) {
+  var rows = Math.max(1, Math.ceil(pixelRows / FINAL_DIRECT_MAX_SIDE));
+  var cols = Math.max(1, Math.ceil(pixelCols / FINAL_DIRECT_MAX_SIDE));
+  var guard = 0;
+  while (guard++ < 100000) {
+    var tileRows = Math.ceil(pixelRows / rows);
+    var tileCols = Math.ceil(pixelCols / cols);
+    if (tileRows <= FINAL_DIRECT_MAX_SIDE &&
+        tileCols <= FINAL_DIRECT_MAX_SIDE &&
+        tileRows * tileCols <= FINAL_DIRECT_MAX_PIXELS) break;
+    if (tileCols >= tileRows) cols++;
+    else rows++;
+  }
+  return {rows: rows, cols: cols};
+}
+
+// Redefine the previously-added AOI adjustment. The final finish() wrapper calls
+// this function by name, so this version is used without changing finish().
+flexibleAdjustGridForAoi = function(roi) {
+  roi.geometry().centroid(1, ee.Projection('EPSG:4326')).coordinates().evaluate(
+    function(coords, centreError) {
+      if (centreError || !coords || coords.length < 2 || !APP.finalMap) return;
+      var crs;
+      try { crs = simple10Utm(Number(coords[0]), Number(coords[1])); }
+      catch (projectionError) { return; }
+
+      roi.geometry().bounds(1, ee.Projection(crs)).coordinates().evaluate(
+        function(polygons, boundsError) {
+          if (boundsError || !polygons || !polygons[0] || !APP.finalMap) return;
+          try {
+            var ring = polygons[0];
+            var xs = [], ys = [];
+            ring.forEach(function(point) {
+              xs.push(Number(point[0]));
+              ys.push(Number(point[1]));
+            });
+            var pixelCols = Math.max(1, Math.ceil(
+              (Math.max.apply(null, xs) - Math.min.apply(null, xs) + 2) / 10
+            ));
+            var pixelRows = Math.max(1, Math.ceil(
+              (Math.max.apply(null, ys) - Math.min.apply(null, ys) + 2) / 10
+            ));
+            var safe = flexibleMinimumSafeGrid(pixelRows, pixelCols);
+            var currentRows = Math.max(1, Math.floor(Number(rowsBox.getValue()) || 1));
+            var currentCols = Math.max(1, Math.floor(Number(colsBox.getValue()) || 1));
+
+            // Keep a user's larger safe grid, but automatically raise an unsafe
+            // small grid and cap impossible rows/columns to the raster dimensions.
+            var adjustedRows = Math.min(pixelRows, Math.max(currentRows, safe.rows));
+            var adjustedCols = Math.min(pixelCols, Math.max(currentCols, safe.cols));
+            rowsBox.setValue(String(adjustedRows), false);
+            colsBox.setValue(String(adjustedCols), false);
+            flexibleResetDownloadState(
+              'Map ready. Safe direct-download grid for this AOI: ' +
+              adjustedRows + ' rows x ' + adjustedCols + ' columns = ' +
+              (adjustedRows * adjustedCols) + ' GeoTIFF files. Links are shown 20 at a time.'
+            );
+          } catch (gridError) {
+            simple10Summary.setValue(
+              'Map ready. Enter rows and columns, then generate direct 10 m download links.'
+            );
+            finalDirectSync();
+          }
+        }
+      );
+    }
+  );
+};
+
+function flexibleEmbeddingCollection(year, geometry) {
+  var start = ee.Date.fromYMD(year, 1, 1);
+  return ee.ImageCollection('GOOGLE/SATELLITE_EMBEDDING/V1/ANNUAL')
+    .filterDate(start, start.advance(1, 'year'))
+    .filterBounds(geometry);
+}
+
+function flexibleEmbeddingImage(year, geometry, cfg) {
+  var primaryCollection = flexibleEmbeddingCollection(year, geometry);
+  var primary = primaryCollection.mosaic();
+  if (year === cfg.targetYear) {
+    var fallback = flexibleEmbeddingCollection(cfg.fallback, geometry).mosaic();
+    primary = primary.unmask(fallback);
+  }
+  return primary;
+}
+
+function flexibleBuildClassLookup(histogram) {
+  var lookup = {};
+  var counts = {};
+  var validTotal = 0;
+  var keys = Object.keys(histogram || {});
+  keys.forEach(function(key) {
+    var numeric = Number(String(key).trim());
+    if (isFinite(numeric) && Math.floor(numeric) === numeric &&
+        classValues.indexOf(numeric) >= 0) {
+      lookup[String(key)] = numeric;
+      counts[numeric] = (counts[numeric] || 0) + Number(histogram[key] || 0);
+      validTotal += Number(histogram[key] || 0);
+    }
+  });
+  return {lookup: lookup, counts: counts, total: validTotal};
+}
+
+function flexibleNormalizeTraining(raw, cfg, lookupObject) {
+  var lookup = ee.Dictionary(lookupObject);
+  return raw
+    .filter(ee.Filter.notNull([cfg.classField]))
+    .map(function(feature) {
+      var original = feature.get(cfg.classField);
+      var key = ee.String(original);
+      var code = ee.Number(lookup.get(key, -999999));
+      return feature.set(cfg.classField, code);
+    })
+    .filter(ee.Filter.inList(cfg.classField, classValues));
+}
+
+// Guaranteed per-class split. Every represented class has at least one training
+// and one validation feature; the preflight enforces >=2 usable features/class.
+function flexibleStratified(points, cfg, seed) {
+  var classes = points.aggregate_array(cfg.classField).distinct().sort();
+  var pieces = classes.map(function(classValue) {
+    classValue = ee.Number(classValue);
+    var classPoints = points
+      .filter(ee.Filter.eq(cfg.classField, classValue))
+      .randomColumn('_flex_random', seed)
+      .sort('_flex_random');
+    var count = classPoints.size();
+    var proposed = count.multiply(cfg.trainFraction).floor();
+    var trainCount = proposed.max(1).min(count.subtract(1));
+    var list = classPoints.toList(count);
+    return ee.Dictionary({
+      train: ee.FeatureCollection(list.slice(0, trainCount)),
+      val: ee.FeatureCollection(list.slice(trainCount, count))
+    });
+  });
+  return {
+    train: ee.FeatureCollection(pieces.map(function(item) {
+      return ee.Dictionary(item).get('train');
+    })).flatten(),
+    val: ee.FeatureCollection(pieces.map(function(item) {
+      return ee.Dictionary(item).get('val');
+    })).flatten()
+  };
+}
+
+function flexibleTemporalDecision(yearlyDictionary, cfg) {
+  var stack = ee.Image.cat(cfg.years.map(function(year) {
+    return yearlyDictionary[year].rename('y' + year);
+  }));
+  var priority = stack.select('y' + cfg.targetYear);
+  var standard = stack.reduce(ee.Reducer.mode());
+  var class4Count = ee.Image(0);
+  var class5Count = ee.Image(0);
+  cfg.years.forEach(function(year) {
+    class4Count = class4Count.add(stack.select('y' + year).eq(4));
+    class5Count = class5Count.add(stack.select('y' + year).eq(5));
+  });
+  return standard
+    .where(priority.eq(4).or(priority.eq(5)), priority)
+    .where(class5Count.gte(2), 5)
+    .where(class4Count.gte(2), 4)
+    .where(class4Count.gte(2).and(class5Count.gte(2)), priority)
+    .rename('classification');
+}
+
+function flexibleMakeMap(train, cfg, seed, roi, fullTrainingGeometry, terrain) {
+  var yearly = {};
+  var yearlyForValidation = {};
+  var classifiers = {};
+  var trainingFootprint = fullTrainingGeometry.bounds(1);
+  var aoiFootprint = roi.geometry().bounds(1);
+
+  cfg.years.forEach(function(year) {
+    var nationalPredictors = ee.Image.cat([
+      flexibleEmbeddingImage(year, trainingFootprint, cfg), terrain
+    ]);
+    var aoiPredictors = ee.Image.cat([
+      flexibleEmbeddingImage(year, aoiFootprint, cfg), terrain
+    ]);
+    var predictorBands = nationalPredictors.bandNames();
+    var samples = nationalPredictors.sampleRegions({
+      collection: train,
+      properties: [cfg.classField],
+      scale: cfg.scale,
+      tileScale: cfg.tileScale,
+      geometries: false
+    }).filter(ee.Filter.notNull(predictorBands));
+
+    var classifier = ee.Classifier.smileRandomForest({
+      numberOfTrees: cfg.trees,
+      bagFraction: cfg.bag,
+      seed: seed
+    }).train({
+      features: samples,
+      classProperty: cfg.classField,
+      inputProperties: predictorBands
+    });
+
+    classifiers[year] = classifier;
+    yearlyForValidation[year] = nationalPredictors
+      .classify(classifier)
+      .rename('c' + year);
+    yearly[year] = aoiPredictors
+      .classify(classifier)
+      .rename('c' + year)
+      .clip(roi);
+  });
+
+  return {
+    finalMap: flexibleTemporalDecision(yearly, cfg).clip(roi),
+    validationMap: flexibleTemporalDecision(yearlyForValidation, cfg),
+    yearly: yearly,
+    classifiers: classifiers
+  };
+}
+
+function flexibleAbortRun(message) {
+  APP.running = false;
+  runButton.setDisabled(false);
+  exportButton.setDisabled(true);
+  tileButton.setDisabled(true);
+  setStatus(message, '#b71c1c');
+  finalDirectSync();
+}
+
+function flexibleRunCompleteAssets() {
+  if (APP.running || CACHE10.preparing) return;
+
+  var cfg;
+  try {
+    normalizeVisibleAssetBoxes();
+    cfg = readConfig();
+  } catch (configError) {
+    setStatus('Input error: ' + lcErrorText(configError), '#b71c1c');
+    return;
+  }
+
+  var token = ++FLEXIBLE_RUN_STATE.token;
+  FLEXIBLE_RUN_STATE.lastSeedError = null;
+  APP.running = true;
+  APP.downloadGeneration++;
+  CACHE10.generation++;
+  CACHE10.loadedAsset = null;
+  CACHE10.grid = null;
+  CACHE10.operation = null;
+  APP.finalMap = null;
+  APP.yearly = null;
+  APP.roi = null;
+  APP.best = null;
+  APP.cfg = null;
+  SIMPLE10.model = null;
+  SIMPLE10.modelKey = null;
+  SIMPLE10.runKey = simple10ModelKey();
+  runButton.setDisabled(true);
+  exportButton.setDisabled(true);
+  tileButton.setDisabled(true);
+  resultsPanel.clear();
+  downloadPanel.clear();
+  map.clear();
+  flexibleResetDownloadState('Checking the supplied AOI and training assets...');
+  setStatus('Validating supplied Earth Engine assets and training classes...', '#0d47a1');
+
+  var roi = ee.FeatureCollection(cfg.aoi);
+  var raw = ee.FeatureCollection(cfg.training);
+
+  // One evaluation gives precise asset/schema diagnostics before any RF seed runs.
+  ee.Dictionary({
+    aoiFeatures: roi.size(),
+    aoiAreaM2: roi.geometry().area(1),
+    trainingFeatures: raw.size(),
+    classHistogram: raw.aggregate_histogram(cfg.classField)
+  }).evaluate(function(preflight, preflightError) {
+    if (token !== FLEXIBLE_RUN_STATE.token) return;
+    if (preflightError || !preflight) {
+      flexibleAbortRun(
+        'Asset/schema check failed. The AOI or training path may be wrong, the asset may not ' +
+        'be a FeatureCollection, the class field may not exist, or a published App may not ' +
+        'have permission to read the asset. Earth Engine: ' +
+        lcErrorText(preflightError || 'No preflight result was returned.')
+      );
+      return;
+    }
+
+    if (Number(preflight.aoiFeatures || 0) < 1 || Number(preflight.aoiAreaM2 || 0) <= 0) {
+      flexibleAbortRun('AOI asset is readable but empty or has no valid area geometry.');
+      return;
+    }
+    if (Number(preflight.trainingFeatures || 0) < 1) {
+      flexibleAbortRun('Training asset is readable but contains no features.');
+      return;
+    }
+
+    var classInfo = flexibleBuildClassLookup(preflight.classHistogram || {});
+    var represented = Object.keys(classInfo.counts).map(Number).sort(function(a, b) { return a - b; });
+    if (!represented.length || classInfo.total < 4) {
+      flexibleAbortRun(
+        'Training asset is readable, but field "' + cfg.classField +
+        '" contains no usable class codes 1-12. Use the class-field box to name the property ' +
+        'that stores the 12 land-cover codes.'
+      );
+      return;
+    }
+    if (represented.length < 2) {
+      flexibleAbortRun('Training data must contain at least two represented land-cover classes.');
+      return;
+    }
+
+    var tooSmall = represented.filter(function(code) {
+      return Number(classInfo.counts[code] || 0) < 2;
+    });
+    if (tooSmall.length) {
+      flexibleAbortRun(
+        'Training data cannot be split into independent training/validation sets. ' +
+        'These class code(s) have fewer than 2 usable features: ' + tooSmall.join(', ') + '.'
+      );
+      return;
+    }
+
+    var points = flexibleNormalizeTraining(raw, cfg, classInfo.lookup);
+    var trainingGeometry = points.geometry();
+    var aoiGeometry = roi.geometry();
+
+    // Check annual embedding availability for both the training footprint and AOI.
+    var coverage = {};
+    cfg.years.forEach(function(year) {
+      coverage['train_' + year] = flexibleEmbeddingCollection(year, trainingGeometry).size();
+      coverage['aoi_' + year] = flexibleEmbeddingCollection(year, aoiGeometry).size();
+    });
+    if (cfg.years.indexOf(cfg.fallback) < 0) {
+      coverage['train_' + cfg.fallback] = flexibleEmbeddingCollection(cfg.fallback, trainingGeometry).size();
+      coverage['aoi_' + cfg.fallback] = flexibleEmbeddingCollection(cfg.fallback, aoiGeometry).size();
+    }
+
+    setStatus('Assets are readable. Checking satellite-embedding coverage...', '#0d47a1');
+    ee.Dictionary(coverage).evaluate(function(coverageData, coverageError) {
+      if (token !== FLEXIBLE_RUN_STATE.token) return;
+      if (coverageError || !coverageData) {
+        flexibleAbortRun(
+          'Could not verify GOOGLE/SATELLITE_EMBEDDING/V1/ANNUAL coverage. Earth Engine: ' +
+          lcErrorText(coverageError || 'No coverage result was returned.')
+        );
+        return;
+      }
+
+      var missing = [];
+      cfg.years.forEach(function(year) {
+        var trainCount = Number(coverageData['train_' + year] || 0);
+        var aoiCount = Number(coverageData['aoi_' + year] || 0);
+        if (year === cfg.targetYear) {
+          var fallbackTrain = Number(coverageData['train_' + cfg.fallback] || 0);
+          var fallbackAoi = Number(coverageData['aoi_' + cfg.fallback] || 0);
+          if (trainCount < 1 && fallbackTrain < 1) missing.push('training area ' + year + '/' + cfg.fallback);
+          if (aoiCount < 1 && fallbackAoi < 1) missing.push('AOI ' + year + '/' + cfg.fallback);
+        } else {
+          if (trainCount < 1) missing.push('training area ' + year);
+          if (aoiCount < 1) missing.push('AOI ' + year);
+        }
+      });
+      if (missing.length) {
+        flexibleAbortRun(
+          'Satellite embedding coverage is unavailable for: ' + missing.join('; ') +
+          '. Change the assessment/window/fallback years or use assets inside the embedding coverage.'
+        );
+        return;
+      }
+
+      var dem = ee.Image('USGS/SRTMGL1_003');
+      var terrain = ee.Image.cat([
+        dem.select('elevation').unmask(0),
+        ee.Terrain.slope(dem).unmask(0),
+        ee.Terrain.aspect(dem).unmask(0)
+      ]).rename(['elevation', 'slope', 'aspect']);
+      var best = null;
+
+      print('AOI asset:', cfg.aoi);
+      print('Training asset:', cfg.training);
+      print('Usable national training features:', points.size());
+      print('Represented class codes:', represented);
+
+      function attempt(index) {
+        if (token !== FLEXIBLE_RUN_STATE.token) return;
+        if (index >= cfg.seeds.length) {
+          if (best) {
+            APP.best = best;
+            setStatus('Preparing the selected model at 10 m...', '#0d47a1');
+            materializeBestModel(best, cfg, roi, null, terrain);
+          } else {
+            flexibleAbortRun(
+              'No Random Forest seed completed successfully. Last Earth Engine error: ' +
+              (FLEXIBLE_RUN_STATE.lastSeedError ||
+               'No detailed server error was returned. Check sample counts and predictor coverage.')
+            );
+          }
+          return;
+        }
+
+        var seed = cfg.seeds[index];
+        setStatus(
+          'Testing seed ' + seed + ' (' + (index + 1) + ' of ' + cfg.seeds.length + ')...',
+          '#0d47a1'
+        );
+
+        var splitData = flexibleStratified(points, cfg, seed);
+        var result = flexibleMakeMap(
+          splitData.train, cfg, seed, roi, trainingGeometry, terrain
+        );
+        var validation = result.validationMap.sampleRegions({
+          collection: splitData.val,
+          properties: [cfg.classField],
+          scale: cfg.scale,
+          tileScale: cfg.tileScale,
+          geometries: false
+        });
+        var errorMatrix = validation.errorMatrix(
+          cfg.classField, 'classification', classValues
+        );
+
+        ee.Dictionary({
+          overall: errorMatrix.accuracy(),
+          kappa: errorMatrix.kappa(),
+          prod: errorMatrix.producersAccuracy(),
+          conf: errorMatrix.array(),
+          validationCount: validation.size()
+        }).evaluate(function(data, evaluationError) {
+          if (token !== FLEXIBLE_RUN_STATE.token) return;
+          if (evaluationError || !data) {
+            FLEXIBLE_RUN_STATE.lastSeedError = lcErrorText(
+              evaluationError || ('Seed ' + seed + ' returned no validation result.')
+            );
+            print('Seed ' + seed + ' failed:', FLEXIBLE_RUN_STATE.lastSeedError);
+            attempt(index + 1);
+            return;
+          }
+
+          var producer = Array.isArray(data.prod) ? data.prod : Object.values(data.prod || {});
+          if (producer.length === 1 && Array.isArray(producer[0])) producer = producer[0];
+          var confusion = Array.isArray(data.conf) ? data.conf : Object.values(data.conf || {});
+          if (confusion.length === 1 && Array.isArray(confusion[0]) && Array.isArray(confusion[0][0])) {
+            confusion = confusion[0];
+          }
+
+          var minimumAccuracy = 100;
+          var targetReached = true;
+          var scoredClasses = 0;
+          for (var k = 0; k < classValues.length; k++) {
+            var matrixRow = confusion[k] || [];
+            var rowSamples = matrixRow.reduce(function(sum, value) {
+              return sum + Number(value || 0);
+            }, 0);
+            if (rowSamples <= 0 || classValues[k] === cfg.excluded) continue;
+            var accuracy = Number(producer[k]) * 100;
+            if (!isFinite(accuracy)) continue;
+            scoredClasses++;
+            minimumAccuracy = Math.min(minimumAccuracy, accuracy);
+            if (accuracy < cfg.targetAccuracy) targetReached = false;
+          }
+
+          if (!scoredClasses) {
+            FLEXIBLE_RUN_STATE.lastSeedError =
+              'Seed ' + seed + ' produced no usable validation samples.';
+            attempt(index + 1);
+            return;
+          }
+
+          if (!best || minimumAccuracy > best.score) {
+            best = {
+              score: minimumAccuracy,
+              seed: seed,
+              map: result.finalMap,
+              yearly: result.yearly,
+              overall: Number(data.overall),
+              kappa: Number(data.kappa),
+              prod: producer,
+              conf: confusion,
+              val: splitData.val,
+              classifiers: result.classifiers
+            };
+          }
+
+          if (targetReached) {
+            APP.best = best;
+            materializeBestModel(best, cfg, roi, null, terrain);
+          } else {
+            attempt(index + 1);
+          }
+        });
+      }
+
+      attempt(0);
+    });
+  });
+}
+
+// Final active RUN binding.
+runButton.unlisten();
+runButton.onClick(flexibleRunCompleteAssets);
+
+// Final active direct-download binding.
+exportButton.unlisten();
+exportButton.onClick(simple10Click);
+tileButton.unlisten();
+tileButton.setDisabled(true);
+tileButton.style().set('shown', false);
+
+flexibleResetDownloadState(
+  'Paste a readable AOI FeatureCollection and training FeatureCollection above, then run automated mapping.'
+);
+setStatus(
+  'Ready. Asset IDs may come from any Earth Engine project/folder. Published Apps can read public assets or assets shared with the App.',
+  '#333333'
+);
+finalDirectSync();
+
+// END FINAL CONSOLIDATED FLEXIBLE-ASSET FIX
 // ============================================================================
