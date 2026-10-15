@@ -74,13 +74,15 @@ class EarthEngineGraphTests(ApiTestCase):
             source=import_bundle(store,archive)
             identifier=json.loads(files['result.json'])['outputs'][0]['artifact_id']
             job=enqueue_export(store,source['job_id'],identifier,
-                               {'crs':'EPSG:32633','transform':[10,0,0,0,-10,0]},request_id=str(uuid4()))
+                               {'crs':'EPSG:32633','transform':[10,0,0,0,-10,0],
+                                'max_pixels':5000000000},request_id=str(uuid4()))
             backend=object.__new__(EarthEngineBackend);backend.ee=ee
             with patch.object(lc,'search_seeds',side_effect=AssertionError('No seed search during export')), \
                     patch.object(ee.data,'computeValue',side_effect=AssertionError('No evaluation during preparation')):
                 payload=backend.prepare(store,job)
             encoded=json.dumps(payload,allow_nan=False)
             self.assertIn('EPSG:32633',encoded)
+            self.assertEqual(payload['maxPixels']['value'], '5000000000')
             self.assertIn('Image.toUint8',encoded)
             self.assertEqual(payload['fileExportOptions']['fileFormat'],'GEO_TIFF')
             self.assertTrue(payload['fileExportOptions']['geoTiffOptions']['cloudOptimized'])

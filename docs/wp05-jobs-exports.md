@@ -14,7 +14,8 @@ No model method or accuracy assessment is changed.
   requests, lost submission responses, cancellation races and actual EE-client
   export serialization. It does not contact the Earth Engine service.
 - The owner's completed Tripoli ZIP was imported locally and all six retained
-  graph checksums passed. No remote export was submitted by that local check.
+  graph checksums passed. No remote export was submitted by that local check. The subsequent owner-run export
+  reached Earth Engine, then failed the pixel-count limit; see the correction below.
 - Live acceptance is **pending**: authenticate, submit the final-map export,
   observe a terminal result and inspect an actual downloaded GeoTIFF. This is not
   a claim that a GeoTIFF has already been generated.
@@ -54,7 +55,8 @@ The export spec uses EPSG:32633 and `[10,0,0,0,-10,0]`, the explicit grid record
 for the Tripoli probes. The first release requires an explicit north-up 10 m UTM
 grid. It encodes classes 1–12 as UInt8 with 0 as NoData, clips the export region to
 the requested AOI geometry, requests Cloud Optimized GeoTIFF and allows 100 million
-pixels by default. `file_dimensions=4096` can produce multiple TIFF files within
+pixels by default. The explicit Tripoli example overrides this with 5 billion
+pixels after the first live task reported 4,696,963,298 pixels. `file_dimensions=4096` can produce multiple TIFF files within
 one export. No resampling, classifier or temporal-rule change is introduced.
 
 The selected graph is restored; the seed search is not repeated. Earth Engine can
@@ -165,3 +167,39 @@ the actual output has been received and inspected.
 The adapter pins `earthengine-api==1.7.48`, uses public export/operation APIs and
 persists the serialized request before submission. No private `Task._request_id`
 attribute is used.
+
+## Tripoli live export: pixel-limit failure and correction (2026-10-15)
+
+The owner supplied a WP05 backup showing the imported mapping remained completed,
+while its export advanced through submitted/running to failed. Bundle/graph and
+export-payload hashes, SQLite integrity and the manifest/event correspondence
+passed inspection. The archive contains no TIFF pixels.
+
+The original handoff retained only remote code 3. A separate owner-authenticated
+operation read supplied the cause: 4,696,963,298 requested pixels exceeded the
+configured 100,000,000 maximum. This is a reported export-size guard failure;
+it is not an accuracy finding or evidence that the model must change.
+
+The Tripoli spec and notebook now explicitly set `max_pixels=5000000000`.
+The general library default stays at 100 million. The AOI, CRS, 10 m affine grid,
+selected graph, class encoding and 4096-pixel file dimensions are unchanged.
+The pixel count is the server's reported export count, not an independently
+measured AOI area. Splitting files with `file_dimensions` does not lower the
+whole export's pixel count. Raising this cap clears the reported guard only;
+it does not guarantee the subsequent computation will complete.
+
+For the already-open original notebook, replace only `max_pixels` in cell 4 with
+`5000000000`, rerun cells 4 and 5, poll with cell 6 and download a new backup with
+cell 7. Cell 4 hashes the changed spec into a new deterministic request UUID,
+so this is an explicit corrected attempt after a confirmed terminal failure.
+Do not reuse the failed request UUID with changed inputs, edit stored records,
+or resubmit the unchanged failed job. The old failed record remains available.
+
+The updated notebook additionally retrieves the server error for failed tasks
+and saves it in the private handoff under `remote_diagnostic`; a failed diagnostic
+lookup does not prevent the backup download. This does not alter generic ledger
+error handling or the immutable model code. The notebook still installs the same
+pinned service commit: the existing service already supports the higher cap.
+
+Live acceptance remains open until a corrected attempt completes and actual TIFF
+files have been inspected. No retry was submitted from this development environment.
