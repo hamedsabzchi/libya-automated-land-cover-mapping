@@ -11,3 +11,9 @@ venv/
 *.zip
 *.geojson
 *.gpkg
+build/
+dist/
+*.egg-info/
+runs/
+reference-session.js
+gee-evidence.json

@@ -1,0 +1,9 @@
+{
+  "schema_version": "wp04.1",
+  "status": "observations_match",
+  "differences": [],
+  "missing_observations": [],
+  "numeric_absolute_tolerance": 1e-9,
+  "full_raster_parity_proven": false,
+  "scope": "One input case and explicit raster probes only; not a scientific accuracy assessment."
+}
