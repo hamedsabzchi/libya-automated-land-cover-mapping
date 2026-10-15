@@ -5,6 +5,11 @@ comparison is pending authenticated execution with an agreed small AOI, accessib
 training asset and explicit probe locations. Do not close WP04 on offline tests alone.
 No scientific accuracy assessment or change to the model is part of this work.
 
+The owner has now supplied a concrete Tripoli case. The [prepared Colab notebook
+and case configuration](../examples/wp04-tripoli/README.md) use those exact project
+and asset identifiers. Authentication and actual live observations remain pending;
+the notebook is committed without executed outputs.
+
 The GEE reference remains byte-identical to WP01, SHA-256
 `1383cb783d6245031be3bce34af9ca7bc7f2952c5e02725b41f21cc75f9819e4`.
 The WP03 engine and adapter are also unchanged. Package version `0.4.0` identifies
