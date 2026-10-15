@@ -56,3 +56,11 @@ The committed notebook retains empty outputs and execution counts. Offline check
 Python syntax, exact asset configuration and probe construction; they do not simulate
 a completed live run. See [WP04 execution instructions](../../docs/wp04-execution.md)
 for bundle meanings, comparison limits and remaining live acceptance work.
+
+## Export the retained result (WP05)
+
+Use [the WP05 notebook](../../python/04_wp05_tripoli_export.ipynb) with the existing
+WP04 ZIP. It imports the selected result and creates one final-map export by default.
+`export-spec.json` specifies the recorded Tripoli probe grid, EPSG:32633 at 10 m.
+It is an export grid configuration, not evidence that a full raster has been checked.
+See [WP05 instructions](../../docs/wp05-jobs-exports.md) before recovery or retries.

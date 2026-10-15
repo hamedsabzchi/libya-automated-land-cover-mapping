@@ -1,0 +1,7 @@
+{
+  "crs": "EPSG:32633",
+  "transform": [10, 0, 0, 0, -10, 0],
+  "folder_prefix": "LibyaLandCover_Tripoli",
+  "max_pixels": 100000000,
+  "file_dimensions": 4096
+}

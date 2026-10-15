@@ -17,3 +17,6 @@ dist/
 runs/
 reference-session.js
 gee-evidence.json
+job-store/
+*.sqlite3
+*.sqlite3-journal

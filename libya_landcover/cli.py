@@ -66,10 +66,15 @@ def parser():
     diff = commands.add_parser("compare", help="Compare actual Python and GEE observation JSON offline")
     diff.add_argument("python_evidence")
     diff.add_argument("gee_evidence")
+    from .job_cli import add_parser
+    add_parser(commands)
     return root
 
 
 def execute(args):
+    if args.command == "jobs":
+        from .job_cli import execute as execute_job
+        return execute_job(args)
     if args.command == "validate":
         request = request_from_inputs(read_json(args.request))
         emit({"request": request.to_dict(), "fingerprint": request.fingerprint(), "engine_config": request.engine_config()})
