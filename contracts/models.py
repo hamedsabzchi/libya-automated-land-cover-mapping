@@ -1,7 +1,7 @@
 """WP02 wire contracts. Standard library only; never imports or executes GEE.
 
 Use from_dict()/from_json() to validate and to_dict()/to_json() to serialize.
-These contracts are not yet integrated with python/landcover_engine.py (WP03).
+The WP03 python/assistant_adapter.py bridge consumes these unchanged wire formats.
 """
 
 from copy import deepcopy

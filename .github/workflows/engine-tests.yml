@@ -1,0 +1,29 @@
+name: Python reference engine tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  engine:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install EE client for offline graph construction
+        run: python -m pip install -r tests/requirements.txt
+      - name: Require the real EE client tests
+        run: python -c "import ee; from ee.apitestcase import ApiTestCase; print(ee.__version__)"
+      - name: Check contracts, reference behavior and graph serialization
+        run: python -m unittest discover -s tests -p 'test_*.py' -v
+      - name: Check the unchanged GEE syntax
+        run: node --check gee/automated_land_cover_app.js

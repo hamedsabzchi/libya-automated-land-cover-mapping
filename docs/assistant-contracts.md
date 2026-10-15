@@ -1,11 +1,13 @@
 # WP02 — Assistant/engine contracts v1.0
 
-Status: executable contracts and offline examples; **not yet wired to the engine**.
+Status at WP02: executable contracts and offline examples. **WP03 update:** the
+contracts are now consumed by `python/assistant_adapter.py`; see the
+[engine integration handoff](python-engine-integration.md) for execution and limits.
 Prepared: 2026-10-15. Depends on WP01 and its
 [immutable reference specification](gee-reference-spec.md) and
 [Python parity checklist](python-parity-checklist.md).
 
-The GEE reference and existing Python engine are unchanged. This package defines
+WP02 left the GEE reference and existing Python engine unchanged. This package defines
 the boundary a later Python port, run manager and chatbot will share. It neither
 executes nor modifies the model. The model's existing calculations and selection
 rules remain authoritative.
