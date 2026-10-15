@@ -2,6 +2,10 @@
 
 import json
 import unittest
+import tempfile
+from pathlib import Path
+from types import SimpleNamespace
+from uuid import uuid4
 from unittest.mock import patch
 
 try:
@@ -47,6 +51,38 @@ class EarthEngineGraphTests(ApiTestCase):
             prepared = lc.prepare_inputs(self.cfg)
             self.assertEqual(compute.call_count,2)
         return prepared
+
+    def test_wp04_graph_store_roundtrip_and_checksum(self):
+        from libya_landcover.bundle import GraphArtifactStore
+        image = lc.build_seed_model(self.cfg,42,prepared=self.prepare())['final_map']
+        with tempfile.TemporaryDirectory() as folder:
+            store = GraphArtifactStore(folder)
+            run_id, artifact_id = str(uuid4()), str(uuid4())
+            store.save_many(run_id,{artifact_id:image})
+            restored = store.get(run_id,artifact_id)
+            self.assertEqual(json.loads(restored.serialize()),json.loads(image.serialize()))
+            with self.assertRaises(KeyError): store.get(str(uuid4()),artifact_id)
+            (Path(folder)/'graphs'/(artifact_id+'.json')).write_text('{}')
+            with self.assertRaisesRegex(ValueError,'checksum'): store.get(run_id,artifact_id)
+
+    def test_wp04_probe_graph_uses_explicit_grid_and_observes_masks(self):
+        from contracts import RunRequest
+        from libya_landcover.evidence import capture
+        model = lc.build_seed_model(self.cfg,42,prepared=self.prepare())
+        request = RunRequest({'request_id':str(uuid4()),'aoi_asset':self.cfg.aoi_asset,
+                             'training_asset':self.cfg.training_asset,'year_count':2})
+        spec = {'crs':'EPSG:32633','transform':[10,0,0,0,-10,0],
+                'points':[{'id':'a','lon':13.2,'lat':32.8}]}
+        result = SimpleNamespace(to_dict=lambda:{'selection':{},'metrics':{}})
+        replies = [{'normalized':['a','b'],'train':['0_a'],'validation':['0_b']},
+                   {'features':[{'properties':{'probe_id':'a','final':4,'final_mask':1}}]}]
+        with patch.object(ee.data,'computeValue',side_effect=replies) as compute:
+            record = capture(SimpleNamespace(result=result,model=model),request,spec)
+        graph = compute.call_args_list[1].args[0].serialize()
+        self.assertIn('Image.reduceRegions',graph)
+        self.assertIn('EPSG:32633',graph)
+        self.assertIn('final_mask',graph)
+        self.assertEqual(record['raster_probes']['spec'],spec)
 
     def test_full_candidate_and_metric_graphs_serialize_without_network(self):
         prepared = self.prepare()
