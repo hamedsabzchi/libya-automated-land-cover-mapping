@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0",
+  "run_id": "55555555-5555-4555-8555-555555555555",
+  "request_id": "44444444-4444-4444-8444-444444444444",
+  "request_fingerprint": "27bc4d5167963a190dbee25074b41ca31f6af52e54942835a81daf77e963d604",
+  "revision": 2,
+  "state": "failed",
+  "phase": "failed",
+  "created_at": "2026-10-15T10:00:00Z",
+  "updated_at": "2026-10-15T10:00:30Z",
+  "progress": null,
+  "error": {
+    "code": "ASSET_ACCESS_OR_SCHEMA",
+    "phase": "asset_preflight",
+    "message": "Example only: the supplied asset could not be read.",
+    "retryable": false
+  },
+  "result_id": null
+}
