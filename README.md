@@ -68,7 +68,7 @@ The selection score is the **minimum producer accuracy across included classes**
 
 ## Output
 
-The expanded JavaScript application displays the selected map, materializes the selected Random Forests as fixed decision-tree ensembles for reliable downloads, and generates direct GeoTIFF browser-download links. It supports full-map and tiled downloads, fixed-10 m row/column grids, paged link generation, automatic skipping of empty/outside-AOI cells, and dynamic map symbols. The Python engine mirrors the scientific/modeling core and provides an optional Google Drive export helper; JavaScript-specific browser-download/UI mechanics are intentionally not duplicated. The output class domain is **1–12**.
+The final active JavaScript path retains the selected native classifier-backed map and generates direct GeoTIFF browser-download links. It supports fixed-10 m row/column grids, paged link generation, automatic skipping of empty/outside-AOI cells, and dynamic map symbols. The earlier tree-text materialization path is inactive. The Python engine retains the selected candidate objects and provides an optional Google Drive export helper; browser-download/UI mechanics are separate from the model port. The output class domain is **1–12**.
 
 ## Repository structure
 
@@ -93,7 +93,9 @@ libya-automated-land-cover-mapping/
 
 ## Python ↔ GEE synchronization
 
-The Python engine and Colab notebook are synchronized with the expanded GEE **modeling core**. They use the same datasets, 2017–2024 year bounds, 2024/2023 target-fallback defaults, class scheme, Random Forest settings, seed-selection criterion, validation logic, and temporal cultivated-class rules. GEE-specific model materialization for browser downloads, fixed-10 m grid tiling, paged links, dynamic map symbols, and other UI controls are intentionally JavaScript-only.
+WP03 ports the final active GEE **modeling core** documented in [WP01](docs/gee-reference-spec.md): input normalization/preflight, separate national/AOI predictors, per-class sorted splits, terrain masks, existing temporal and selection rules, failed-candidate continuation and retained selected graphs. `python/assistant_adapter.py` connects this engine to the [WP02 contracts](docs/assistant-contracts.md) in `contracts/` and emits linked status/result objects with session-local map references.
+
+See [Python engine integration](docs/python-engine-integration.md) for usage, compatibility notes and checks. Offline software tests include comparisons with extracted GEE client functions and serialization using the actual Earth Engine Python client. Live server-side execution parity is the next WP04 task. Durable jobs, direct-download services and the chatbot UI remain later work; the adapter does not implement them or change the GEE reference.
 
 ## Google Colab
 
