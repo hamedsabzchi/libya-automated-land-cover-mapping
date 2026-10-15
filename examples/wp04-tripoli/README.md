@@ -43,12 +43,13 @@ or training-feature IDs are committed to this public repository by this setup.
 
 ## Current status
 
-Configured; not executed. The development environment still fails EE initialization
-without authentication. Providing asset paths does not establish access to their
-contents. Real access, normal model execution, Python evidence, and the separate GEE
-comparison remain pending. No claim of execution parity is made.
+The owner has now supplied the first completed Python execution bundle. Its
+request/status/result linkage, captured observations and graph checksums passed
+inspection; see the [run review](../../docs/wp04-tripoli-run-review.md). The separate
+GEE evidence and comparison remain pending. No claim of execution parity is made.
+The original `case.json` status describes the setup template, not the later run.
 
-The notebook has empty outputs and execution counts. Offline checks validate its
+The committed notebook retains empty outputs and execution counts. Offline checks validate its
 Python syntax, exact asset configuration and probe construction; they do not simulate
 a completed live run. See [WP04 execution instructions](../../docs/wp04-execution.md)
 for bundle meanings, comparison limits and remaining live acceptance work.
