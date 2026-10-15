@@ -45,8 +45,11 @@ or training-feature IDs are committed to this public repository by this setup.
 
 The owner has now supplied the first completed Python execution bundle. Its
 request/status/result linkage, captured observations and graph checksums passed
-inspection; see the [run review](../../docs/wp04-tripoli-run-review.md). The separate
-GEE evidence and comparison remain pending. No claim of execution parity is made.
+inspection; see the [run review](../../docs/wp04-tripoli-run-review.md). The subsequent
+[Python/GEE comparison](../../docs/wp04-tripoli-comparison.md) found all recorded
+observation groups equal, including classes/masks at the 26 locations. This confirms
+this case's observations, not full-raster or all-input equivalence. Other WP04
+acceptance cases remain open.
 The original `case.json` status describes the setup template, not the later run.
 
 The committed notebook retains empty outputs and execution counts. Offline checks validate its

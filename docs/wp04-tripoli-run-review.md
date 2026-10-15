@@ -2,6 +2,10 @@
 
 ## Status
 
+**Follow-up:** the owner subsequently supplied GEE console evidence. The
+[Tripoli comparison](wp04-tripoli-comparison.md) now reports matching observations.
+The text below preserves the first Python-only review and its original handoff.
+
 The owner supplied a completed Python execution bundle on 2026-10-15. Inspection
 confirms internally consistent completed status, saved results and captured Python
 observations. The separate GEE evidence is absent, so implementation equivalence

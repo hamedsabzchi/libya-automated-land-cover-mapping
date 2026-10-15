@@ -1,15 +1,16 @@
 # WP04 — Installable runner and controlled execution observations
 
 **Delivery status:** package and diagnostic harness implemented. The owner has supplied
-a completed Tripoli Python execution bundle with captured observations; its integrity
-review passed. The separate GEE execution evidence and Python/GEE comparison remain
-pending. Do not close WP04 on a successful Python run alone.
+a completed Tripoli Python execution bundle and subsequent GEE console evidence.
+The [Tripoli comparison](wp04-tripoli-comparison.md) found all recorded observation
+groups equal. Other WP04 acceptance cases remain open; this probe comparison does
+not establish full-raster or all-input equivalence.
 No scientific accuracy assessment or change to the model is part of this work.
 
 The owner has now supplied a concrete Tripoli case. The [prepared Colab notebook
 and case configuration](../examples/wp04-tripoli/README.md) use those exact project
 and asset identifiers. See the [first Python run review](wp04-tripoli-run-review.md)
-for observed progress and the next GEE capture step. The notebook is committed
+for the initial inspection, and the comparison above for the completed Tripoli case. The notebook is committed
 without executed outputs.
 
 The GEE reference remains byte-identical to WP01, SHA-256
