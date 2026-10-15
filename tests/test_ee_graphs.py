@@ -52,6 +52,46 @@ class EarthEngineGraphTests(ApiTestCase):
             self.assertEqual(compute.call_count,2)
         return prepared
 
+    def test_wp05_drive_request_restores_graph_and_uses_explicit_grid(self):
+        import hashlib
+        import zipfile
+        from test_jobs import bundle_files
+        from libya_landcover.job_store import JobStore
+        from libya_landcover.jobs import import_bundle
+        from libya_landcover.exports import enqueue_export, EarthEngineBackend
+        files=bundle_files()
+        model=lc.build_seed_model(self.cfg,42,prepared=self.prepare())
+        graph=model['final_map'].serialize().encode()
+        index=json.loads(files['graphs/index.json'])
+        for identifier,record in index['artifacts'].items():
+            record['sha256']=hashlib.sha256(graph).hexdigest()
+            files['graphs/'+identifier+'.json']=graph
+        files['graphs/index.json']=json.dumps(index).encode()
+        with tempfile.TemporaryDirectory() as folder:
+            store=JobStore(Path(folder)/'store');archive=Path(folder)/'bundle.zip'
+            with zipfile.ZipFile(archive,'w') as z:
+                for name,data in files.items():z.writestr('run/'+name,data)
+            source=import_bundle(store,archive)
+            identifier=json.loads(files['result.json'])['outputs'][0]['artifact_id']
+            job=enqueue_export(store,source['job_id'],identifier,
+                               {'crs':'EPSG:32633','transform':[10,0,0,0,-10,0],
+                                'max_pixels':5000000000},request_id=str(uuid4()))
+            backend=object.__new__(EarthEngineBackend);backend.ee=ee
+            with patch.object(lc,'search_seeds',side_effect=AssertionError('No seed search during export')), \
+                    patch.object(ee.data,'computeValue',side_effect=AssertionError('No evaluation during preparation')):
+                payload=backend.prepare(store,job)
+            encoded=json.dumps(payload,allow_nan=False)
+            self.assertIn('EPSG:32633',encoded)
+            self.assertEqual(payload['maxPixels']['value'], '5000000000')
+            self.assertIn('Image.toUint8',encoded)
+            self.assertEqual(payload['fileExportOptions']['fileFormat'],'GEO_TIFF')
+            self.assertTrue(payload['fileExportOptions']['geoTiffOptions']['cloudOptimized'])
+            self.assertEqual(payload['fileExportOptions']['driveDestination']['folder'],
+                             'LibyaLandCover_'+job['ee_request_id'])
+            with patch.object(ee.data,'exportImage',return_value={'name':'projects/test/operations/export1'}) as start:
+                backend.start(job['job_id'],payload)
+            self.assertEqual(start.call_args.args,(job['job_id'],payload))
+
     def test_wp04_graph_store_roundtrip_and_checksum(self):
         from libya_landcover.bundle import GraphArtifactStore
         image = lc.build_seed_model(self.cfg,42,prepared=self.prepare())['final_map']

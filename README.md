@@ -95,7 +95,7 @@ libya-automated-land-cover-mapping/
 
 WP03 ports the final active GEE **modeling core** documented in [WP01](docs/gee-reference-spec.md): input normalization/preflight, separate national/AOI predictors, per-class sorted splits, terrain masks, existing temporal and selection rules, failed-candidate continuation and retained selected graphs. `python/assistant_adapter.py` connects this engine to the [WP02 contracts](docs/assistant-contracts.md) in `contracts/` and emits linked status/result objects with session-local map references.
 
-See [Python engine integration](docs/python-engine-integration.md) for usage, compatibility notes and checks. Offline software tests include comparisons with extracted GEE client functions and serialization using the actual Earth Engine Python client. The [Tripoli live comparison](docs/wp04-tripoli-comparison.md) now matches all recorded observation groups; additional WP04 cases remain open. Durable jobs, direct-download services and the chatbot UI remain later work; the adapter does not implement them or change the GEE reference.
+See [Python engine integration](docs/python-engine-integration.md) for usage, compatibility notes and checks. Offline software tests include comparisons with extracted GEE client functions and serialization using the actual Earth Engine Python client. The [Tripoli live comparison](docs/wp04-tripoli-comparison.md) now matches all recorded observation groups; additional WP04 cases remain open. WP05 adds a separate job/export layer described below; the adapter itself does not implement jobs or change the GEE reference. Direct-download services and the chatbot UI remain later work.
 
 ## Installable assistant runner (WP04)
 
@@ -105,6 +105,20 @@ observations. See [WP04 installation and execution](docs/wp04-execution.md).
 The GEE reference and WP03 engine are unchanged. The supplied Tripoli Python/GEE
 records match for their settings, selected result, split IDs and 26 raster probes;
 this does not prove full-raster equality. Saved graphs are not GeoTIFF exports.
+
+## Persistent jobs and GeoTIFF exports (WP05)
+
+Version 0.5 adds a local job ledger, a mapping worker, and separate Earth Engine
+Drive export jobs. A completed WP04 bundle can be imported and its selected maps
+exported without repeating seed search. Export submission, polling, cancellation
+and recovery are explicit operations suitable for a later chatbot tool layer.
+The GEE reference, Python modeling engine and adapter are unchanged.
+
+See [WP05 commands, recovery and acceptance](docs/wp05-jobs-exports.md) and
+[Tripoli export notebook](python/04_wp05_tripoli_export.ipynb).
+This is a single-owner Python/CLI service foundation; it does not deploy a chatbot
+or HTTP server. Automated checks are offline. A successful authenticated Tripoli
+export and inspection of the downloaded GeoTIFF remain live acceptance steps.
 
 ## Google Colab
 

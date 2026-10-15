@@ -3,5 +3,5 @@
 from python.assistant_adapter import request_from_inputs, run_request
 from contracts import RunRequest, RunResult, RunStatus
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 __all__ = ["request_from_inputs", "run_request", "RunRequest", "RunResult", "RunStatus"]

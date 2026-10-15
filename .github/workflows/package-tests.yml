@@ -29,6 +29,7 @@ jobs:
         working-directory: /tmp
         run: |
           /tmp/wp04-wheel/bin/libya-landcover --version
+          /tmp/wp04-wheel/bin/libya-landcover jobs --store /tmp/wp05-jobs list
           /tmp/wp04-wheel/bin/libya-landcover validate "$GITHUB_WORKSPACE/contracts/examples/request.json"
           /tmp/wp04-wheel/bin/libya-landcover prepare-reference --reference "$GITHUB_WORKSPACE/gee/automated_land_cover_app.js" --output /tmp/reference-session.js
           node --check /tmp/reference-session.js
