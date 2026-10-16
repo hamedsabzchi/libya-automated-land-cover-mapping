@@ -18,5 +18,7 @@ runs/
 reference-session.js
 gee-evidence.json
 job-store/
+pilot-store/
+tripoli-pilot-store/
 *.sqlite3
 *.sqlite3-journal

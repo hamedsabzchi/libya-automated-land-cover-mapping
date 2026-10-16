@@ -1,0 +1,87 @@
+{
+  "checks": {
+    "width_height": true,
+    "single_band": true,
+    "uint8": true,
+    "crs": true,
+    "transform": true,
+    "bounds": true,
+    "nodata": true,
+    "class_domain": true,
+    "valid_pixels_present": true,
+    "mask_agrees_with_nodata": true
+  },
+  "all_pass": true,
+  "tif_sha256": "d6df01941f1c47a9889ac182a79d02c8febdb9d312cfecbafd89028efaa98c6c",
+  "zip_sha256": "db576c7759218fdfb96c2af3152dae9cd1c8bf15347916b599770f52e79073ae",
+  "file_bytes": 104684,
+  "dimensions": [
+    1024,
+    1024
+  ],
+  "crs": "EPSG:32633",
+  "affine": [
+    10.0,
+    0.0,
+    371810.0,
+    0.0,
+    -10.0,
+    3395680.0
+  ],
+  "bounds": [
+    371810.0,
+    3385440.0,
+    382050.0,
+    3395680.0
+  ],
+  "dtype": "uint8",
+  "nodata": 0.0,
+  "pixel_count": 1048576,
+  "valid_pixel_count": 1048576,
+  "nodata_pixel_count": 0,
+  "class_counts": {
+    "7": 493992,
+    "8": 554584
+  },
+  "image_structure_tags": {
+    "LAYOUT": "COG",
+    "COMPRESSION": "LZW",
+    "INTERLEAVE": "BAND",
+    "OVERVIEW_RESAMPLING": "NEAREST"
+  },
+  "block_shapes": [
+    [
+      256,
+      256
+    ]
+  ],
+  "overviews": [
+    2,
+    4,
+    8,
+    16,
+    32
+  ],
+  "start_time": "2026-10-16T08:55:16.937107Z",
+  "end_time": "2026-10-16T08:58:59.094004Z",
+  "elapsed_seconds": 222.156897,
+  "attempt": 1,
+  "ee_compute_seconds": 1511.515869140625,
+  "rasterio_version": "1.5.2",
+  "gdal_version": "3.12.2",
+  "schema_version": "wp05-pilot-inspection.1",
+  "inspection_date": "2026-10-16",
+  "scope": "delivery_grid_encoding_and_runtime_only",
+  "service_commit": "1dbbb180c32d4b23f91643439f90126fadd6dc5c",
+  "source_engine_commit": "bf9cf6c8bbd03d083c2d9bccae722d7036923afc",
+  "terminal_state": "SUCCEEDED",
+  "graph_checksums_verified": 6,
+  "manifest_events_and_payload_hash": "verified",
+  "limitations": [
+    "One centroid tile only; not full-area acceptance or a runtime benchmark across regions.",
+    "No assessment of class accuracy or full-raster equality with GEE.",
+    "No NoData pixels occur in this tile; NoData metadata and its mask consistency were checked.",
+    "GDAL reports COG layout; no separate comprehensive COG conformance validator was run.",
+    "Actual TIFF supplied separately from the metadata ZIP; filename and raster grid match the pilot request."
+  ]
+}

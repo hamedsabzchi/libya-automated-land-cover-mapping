@@ -14,7 +14,7 @@ TERMINAL = {"completed", "failed", "cancelled"}
 
 def export_spec(value):
     if not isinstance(value, dict) or not {"crs", "transform"} <= value.keys() or value.keys() - {
-            "crs", "transform", "folder_prefix", "max_pixels", "file_dimensions"}:
+            "crs", "transform", "folder_prefix", "max_pixels", "file_dimensions", "pixel_window"}:
         raise ValueError("Export spec requires crs/transform and only documented options")
     spec = {"folder_prefix": "LibyaLandCover", "max_pixels": 100000000, "file_dimensions": 4096, **value}
     if not isinstance(spec["crs"], str) or not re.fullmatch(r"EPSG:32[67](?:0[1-9]|[1-5][0-9]|60)", spec["crs"]):
@@ -30,7 +30,25 @@ def export_spec(value):
         raise ValueError("Invalid max_pixels")
     if type(spec["file_dimensions"]) is not int or not 256 <= spec["file_dimensions"] <= 8192 or spec["file_dimensions"] % 256:
         raise ValueError("file_dimensions must be a multiple of 256, at most 8192")
+    if "pixel_window" in spec:
+        window = spec["pixel_window"]
+        if (not isinstance(window, dict) or set(window) != {"column", "row", "width", "height"}
+                or any(type(x) is not int for x in window.values())
+                or any(abs(window[k]) > 10000000 for k in ("column", "row"))
+                or any(not 1 <= window[k] <= 1024 for k in ("width", "height"))):
+            raise ValueError("Pilot window requires integer column/row and width/height from 1 to 1024")
+        if spec["max_pixels"] < window["width"] * window["height"]:
+            raise ValueError("max_pixels is below the pilot window size")
     return spec
+
+
+def window_bounds(spec):
+    """Exact metre bounds of integer pixels on the unchanged export lattice."""
+    spec = export_spec(spec)
+    window = spec["pixel_window"]
+    x = spec["transform"][2] + 10 * window["column"]
+    y = spec["transform"][5] - 10 * window["row"]
+    return [x, y - 10 * window["height"], x + 10 * window["width"], y]
 
 
 def enqueue_export(store, mapping_job_id, artifact_id, spec, *, request_id):
@@ -73,10 +91,16 @@ class EarthEngineBackend:
         # Serialization only: selection/search is not rerun. Server evaluation may
         # recompute the retained selected classifier graph when exporting pixels.
         spec = job["inputs"]["spec"]
+        region = ee.FeatureCollection(request["aoi_asset"]).geometry()
+        if "pixel_window" in spec:
+            # Limit only delivery extent. Keep the full retained selected graph,
+            # training scope and global 10 m lattice. Outside the AOI is NoData.
+            image = image.clip(region)
+            region = ee.Geometry.Rectangle(window_bounds(spec), proj=spec["crs"], geodesic=False)
         task = ee.batch.Export.image.toDrive(
             image=image.toUint8().unmask(0, False), description=description(job),
             folder=spec["folder_prefix"] + "_" + job["ee_request_id"], fileNamePrefix=description(job),
-            region=ee.FeatureCollection(request["aoi_asset"]).geometry(),
+            region=region,
             crs=spec["crs"], crsTransform=spec["transform"], maxPixels=spec["max_pixels"],
             fileDimensions=spec["file_dimensions"], shardSize=256,
             fileFormat="GeoTIFF", formatOptions={"cloudOptimized": True, "noData": 0})
@@ -142,7 +166,30 @@ def _apply_operation(store, job, operation):
     if job["cancel_requested"] and state not in TERMINAL:
         state = "cancelling"
     return store.update(job, state=state, operation_name=name, remote_state=remote,
-                        destination_uris=destinations if state == "completed" else [], error=error)
+                        destination_uris=destinations if state == "completed" else [], error=error,
+                        remote_metadata={key: metadata[key] for key in (
+                            "progress", "attempt", "stages", "createTime", "startTime",
+                            "updateTime", "endTime", "batchEecuUsageSeconds") if key in metadata})
+
+
+def recover_export(store, job_id, operation_name, *, backend=None):
+    """Read and reattach a known operation after loss of the local job store.
+
+    The request-specific description and project must match before attaching;
+    this never submits or cancels a task, and never resets a terminal local job.
+    """
+    with store.lock("export-" + canonical_uuid(job_id)):
+        job = _export(store, job_id)
+        if job["state"] in TERMINAL:
+            return job
+        expected = "projects/" + job["inputs"]["project"] + "/operations/"
+        if not isinstance(operation_name, str) or not operation_name.startswith(expected):
+            raise ValueError("Recovery operation belongs to another project")
+        operation = _backend(job, backend).get(operation_name)
+        if (operation.get("name") != operation_name or
+                operation.get("metadata", {}).get("description") != description(job)):
+            raise ValueError("Recovery operation does not match this export request")
+        return _apply_operation(store, job, operation)
 
 
 def _reconcile(store, job, backend):
