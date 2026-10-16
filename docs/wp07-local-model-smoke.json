@@ -1,0 +1,93 @@
+{
+  "model": "Qwen/Qwen2.5-1.5B-Instruct",
+  "device": "cpu",
+  "cases": [
+    {
+      "request": "Prepare a land-cover map for Tripoli for 2024.",
+      "expected_action": "mapping",
+      "actual": {
+        "action": "mapping",
+        "settings": {
+          "target_year": 2024
+        },
+        "job_id": null,
+        "question": null
+      },
+      "seconds": 31.82
+    },
+    {
+      "request": "Change the year to 2023.",
+      "expected_action": "mapping",
+      "actual": {
+        "action": "mapping",
+        "settings": {
+          "target_year": 2023
+        },
+        "job_id": null,
+        "question": null
+      },
+      "seconds": 27.65
+    },
+    {
+      "request": "Has my export finished?",
+      "expected_action": "status",
+      "actual": {
+        "action": "status",
+        "settings": {},
+        "job_id": null,
+        "question": null
+      },
+      "seconds": 20.92
+    },
+    {
+      "request": "Where can I download the result?",
+      "expected_action": "result",
+      "actual": {
+        "action": "result",
+        "settings": {},
+        "job_id": null,
+        "question": null
+      },
+      "seconds": 19.36
+    },
+    {
+      "request": "Prepare a map for Benghazi.",
+      "expected_action": "clarify",
+      "actual": {
+        "action": "clarify",
+        "settings": {},
+        "job_id": null,
+        "question": "Please provide the boundary and training asset paths for Benghazi."
+      },
+      "seconds": 22.26
+    },
+    {
+      "request": "How many hectares of cropland are there?",
+      "expected_action": "clarify",
+      "actual": {
+        "action": "clarify",
+        "settings": {},
+        "job_id": null,
+        "question": "I could not safely interpret that request. Please rephrase it, or use Prepare map, Show status or Show result."
+      },
+      "seconds": 36.38
+    },
+    {
+      "request": "Hello, what can you help me with?",
+      "expected_action": "help",
+      "actual": {
+        "action": "help",
+        "settings": {},
+        "job_id": null,
+        "question": "What specific task would you like assistance with?"
+      },
+      "seconds": 21.25
+    }
+  ],
+  "schema_version": "wp07-local-smoke.1",
+  "model_revision": "989aa7980e4cf806f80c7fef2b1adb7bc71aa306",
+  "transformers_version": "4.57.6",
+  "torch_version": "2.14.1+cpu",
+  "verification_date": "2026-10-16",
+  "note": "Real local CPU inference, not live Colab or GEE. Six cases returned usable intents; the cropland-area question returned the safe rephrase fallback. These seven smoke cases are not a general language-quality benchmark."
+}

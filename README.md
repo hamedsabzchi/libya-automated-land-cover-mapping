@@ -97,7 +97,22 @@ WP03 ports the final active GEE **modeling core** documented in [WP01](docs/gee-
 
 See [Python engine integration](docs/python-engine-integration.md) for usage, compatibility notes and checks. Offline software tests include comparisons with extracted GEE client functions and serialization using the actual Earth Engine Python client. The [Tripoli live comparison](docs/wp04-tripoli-comparison.md) now matches all recorded observation groups; additional WP04 cases remain open. WP05 adds a separate job/export layer described below; the adapter itself does not implement jobs or change the GEE reference. WP06 adds a bounded conversational interface; direct-download services remain later work.
 
-## Conversational assistant (WP06)
+## Start here: English assistant without a paid API (WP07)
+
+[Open the free-English-chat notebook in Colab](https://colab.research.google.com/github/hamedsabzchi/libya-automated-land-cover-mapping/blob/feat/wp07-free-colab-chat/python/07_wp07_free_english_assistant.ipynb).
+Click **Start assistant** once and wait for the app. Everything for the normal
+workflow is in this notebook; no previous ZIP, notebook or code edit is needed.
+Connect Google, choose a year, review the request, and follow the next action on
+screen. English chat is in the same page. **Continue saved work** is optional.
+
+The language model runs inside Colab without an API key or paid inference service.
+Version 0.7.1 keeps the reference engine and explicit confirmation unchanged.
+Tripoli is the configured area; the project owner must grant users access to its
+GEE project and data. The current download is **one small sample window**, not a
+whole-region delivery. Free Colab resources are limited; chat may take tens of
+seconds. See [usage and limitations](docs/wp07-free-colab-chat.md).
+
+## Earlier API-based conversational assistant (WP06)
 
 Version 0.6 adds a private Colab/Jupyter chat interface over the existing mapping,
 job and pilot-export services. Review a request before confirming execution, ask
@@ -184,3 +199,4 @@ Software citation metadata are provided in `CITATION.cff`.
 ## Licensing note
 
 No open-source license is asserted by this repository at this stage. The repository is publicly viewable for technical portfolio, reproducibility, and citation purposes; no broader reuse permission is granted by an explicit software license here.
+
