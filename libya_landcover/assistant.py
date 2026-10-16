@@ -64,7 +64,7 @@ class Assistant:
     def _choose(self, identifier=None):
         identifier = identifier or self.selected
         if identifier is None:
-            raise ValueError("Upload a previous result ZIP or select a job first.")
+            raise ValueError("There is no map yet. Connect Google, choose a year, and click Review my map to get started.")
         job = self.store.get(identifier)
         if job["kind"] not in {"mapping", "export", "assistant_snapshot"}:
             raise ValueError("Choose a mapping or export job")
@@ -263,3 +263,4 @@ class Assistant:
                   "note": "Metadata only; no raster pixels, area statistics, credentials or chat transcript."}
         write_json(destination, report)
         return Path(destination)
+

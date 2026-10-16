@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "libya-landcover-assistant"
-version = "0.7.0"
+version = "0.7.1"
 description = "Installable runner for the unchanged Libya GEE reference model"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -22,3 +22,4 @@ include = ["libya_landcover*", "python", "contracts"]
 
 [tool.setuptools.package-data]
 libya_landcover = ["gee_observer.js"]
+

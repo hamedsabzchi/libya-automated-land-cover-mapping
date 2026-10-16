@@ -5,28 +5,27 @@ runtime**. It does not request an OpenAI key, call a hosted inference provider,
 require Colab Pro, or rent a server. The user's laptop displays the notebook;
 the chat model runs in Colab. The desktop installer is deferred.
 
-Open [the two-cell notebook](../python/07_wp07_free_english_assistant.ipynb).
-The earlier WP06 notebook remains a historical, optional paid-API path; it is
-not the entry point for users who need this no-paid-API workflow.
+Open [the single-start notebook](../python/07_wp07_free_english_assistant.ipynb).
+This is the only notebook needed for the current assistant workflow. The earlier
+notebooks are developer/history entry points, not prerequisites for users.
 
-## First use — no code editing
+## First use — no code editing or previous files
 
-1. Open the notebook in a fresh Colab runtime. Run **Set up**, then **Open assistant**.
-2. Wait for the model to download and the English interface to appear. Model files
-   are several gigabytes; first startup takes longer than reopening a loaded model.
-3. Click **Upload result ZIP** and choose the previous successful pilot ZIP. Ask
-   **“What is the status of my result?”** or click **Show result**. Neither action
-   starts mapping or an export. Imported status is explicitly marked as a snapshot.
-4. Use **Download report**, **Download backup**, or the real **Open result in Google
-   Drive** link as appropriate. Backups contain checked graphs/metadata, not TIFFs.
+1. Click **Start assistant**. Setup and chat loading happen automatically; wait
+   for the app to appear in the same cell.
+2. Click **Connect Google** and complete sign-in with an authorized account.
+3. Choose the year and click **Review my map**, then **Start mapping**.
+4. Use **Check progress**. When mapping finishes, **Prepare sample download**
+   appears. Review its scope and click **Create sample file**.
+5. Use **Check progress** until the Google Drive link appears. Open it to download
+   the sample TIFF. The sample is a small window, not the whole study area.
 
-For a new mapping, ask **“Prepare a land-cover map for Tripoli for 2024.”**, or
-choose the year and click **Prepare map**. You can say **“Change the year to 2023.”**
-before confirmation. Review the readable settings table. Click **Connect Earth
-Engine**, complete Google sign-in, then click **Run reviewed request**. Connecting
-alone does not start a mapping/export. A missing connection does not consume the
-preview. **Prepare pilot** uses the completed mapping behind the selected result;
-it prepares one small export and requires its own confirmation.
+English chat remains on this page throughout. No ZIP upload is required for a new
+map. **Save work for later** downloads a recovery file; next session, open the
+same notebook and expand **Continue saved work (optional)** to reopen it. Raw
+identifiers, data paths, reports and saved-work selection are under **Details and
+support**. Only applicable actions are visible; Google connection and review are
+separate from execution. Changing the year invalidates the old review.
 
 The configured profile uses Hamed's Tripoli project/assets. Other users need
 authorized access or a coordinator-provided profile with their own project, AOI
@@ -60,9 +59,9 @@ Python code, and does not require a Hugging Face token. Inference uses Transform
 
 Only model-file downloads contact Hugging Face; chat inference is local to the
 runtime. The application never falls back to OpenAI or another paid provider.
-If loading fails, the interface explicitly switches to **Guided commands** and
+If loading fails, the interface explicitly switches to **Chat could not load** and
 retains its buttons. That is not advertised as successful free-text chat. Rerunning
-Open assistant retries model loading; an already loaded model is reused.
+Start assistant retries model loading; an already loaded model is reused.
 
 The model is small and can misunderstand a request. Check the proposed year,
 boundary and training data. A rejected/invalid model reply creates no job and asks
@@ -78,8 +77,8 @@ Colab stops providing resources, this version cannot guarantee continued service
 It does not request payment or bypass Colab restrictions.
 
 Keep the runtime connected while the Python mapping worker is running. Download
-the completed mapping/pilot backup before leaving; after a reset, run the two cells
-and upload that ZIP again. A submitted GEE export and its recorded identity can be
+the completed mapping/pilot backup before leaving; after a reset, click Start assistant
+and reopen that saved-work file. A submitted GEE export and its recorded identity can be
 recovered through the existing pilot handoff. An active Python mapping cannot be
 restored from a completed-result ZIP.
 
@@ -88,6 +87,22 @@ This work does not reassess model accuracy, add bulk tiling, deliver the complet
 region, calculate class areas, or perform change analysis.
 
 ## Verification
+
+**0.7.1 verification:** 125 offline tests and 9 repository checks passed. The built
+wheel was exercised outside the source checkout: single-cell startup, Google
+connection callback and asset checks, loaded-model reuse, rerun review invalidation,
+and visible chat-load fallback passed with network, authentication and inference
+mocked. User-side Colab rendering and live Google login still need checking.
+
+The 0.7.1 simplification adds a fresh-user widget journey that starts with an empty
+store, connects, reviews, queues exactly one map, follows completion to a sample,
+confirms exactly one export, shows its destination, and saves recovery in the same
+UI. Remote mapping/export results and authentication are mocked in this test.
+Additional checks cover review invalidation on year change, first-visit status,
+reopening existing work, disabled old interfaces, and the single startup cell.
+The initial real-model evidence below still applies to the unchanged inference
+implementation; the language model was not benchmarked again for this UI change.
+
 
 On 2026-10-16, **119 offline tests** and **9 repository checks** passed. All 13
 protected reference/model/adapter/contract files retained their earlier hashes.
@@ -114,3 +129,4 @@ user-side check; local results are not a guarantee for every runtime.
 Primary references:
 - [Colab FAQ: resources, runtime lifecycle and notebook interaction](https://research.google.com/colaboratory/faq.html)
 - [Publisher's model card and license](https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct)
+

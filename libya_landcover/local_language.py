@@ -118,4 +118,5 @@ class LocalParser:
             return parsed
         except (ValueError, TypeError, KeyError):
             # Invalid text never becomes an action and there is no paid fallback.
-            return intent("clarify", question="I could not safely interpret that request. Please rephrase it, or use Prepare map, Show status or Show result.")
+            return intent("clarify", question="I could not safely interpret that request. Please rephrase it, or use Review my map or Check progress.")
+

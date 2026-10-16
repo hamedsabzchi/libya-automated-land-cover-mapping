@@ -100,16 +100,17 @@ See [Python engine integration](docs/python-engine-integration.md) for usage, co
 ## Start here: English assistant without a paid API (WP07)
 
 [Open the free-English-chat notebook in Colab](https://colab.research.google.com/github/hamedsabzchi/libya-automated-land-cover-mapping/blob/feat/wp07-free-colab-chat/python/07_wp07_free_english_assistant.ipynb).
-Run **Set up**, then **Open assistant**. The language model runs inside your Colab
-runtime: no OpenAI key, paid inference service, rented server or Colab Pro subscription
-is required by the notebook. Upload a previous result ZIP, chat in English, review
-new mapping requests, and use the buttons for status, results and downloads.
+Click **Start assistant** once and wait for the app. Everything for the normal
+workflow is in this notebook; no previous ZIP, notebook or code edit is needed.
+Connect Google, choose a year, review the request, and follow the next action on
+screen. English chat is in the same page. **Continue saved work** is optional.
 
-Version 0.7 keeps the existing engine and explicit execution confirmation. It adds
-a small local language model and an English interface intended for nontechnical
-users. Free Colab resources are limited; first model loading can take several
-minutes and CPU replies can take tens of seconds. Existing authorized GEE access is
-still required for live operations. See [WP07 use and limitations](docs/wp07-free-colab-chat.md).
+The language model runs inside Colab without an API key or paid inference service.
+Version 0.7.1 keeps the reference engine and explicit confirmation unchanged.
+Tripoli is the configured area; the project owner must grant users access to its
+GEE project and data. The current download is **one small sample window**, not a
+whole-region delivery. Free Colab resources are limited; chat may take tens of
+seconds. See [usage and limitations](docs/wp07-free-colab-chat.md).
 
 ## Earlier API-based conversational assistant (WP06)
 
@@ -198,3 +199,4 @@ Software citation metadata are provided in `CITATION.cff`.
 ## Licensing note
 
 No open-source license is asserted by this repository at this stage. The repository is publicly viewable for technical portfolio, reproducibility, and citation purposes; no broader reuse permission is granted by an explicit software license here.
+
