@@ -15,7 +15,7 @@ import zipfile
 
 from contracts import RunRequest
 from .bundle import write_json
-from .chat_language import GuidedParser, HELP, IntentError, validate_intent
+from .chat_language import GuidedParser, HELP, GUIDED_HELP, IntentError, validate_intent
 from .job_store import now
 from .jobs import checked_mapping_bundle, enqueue_mapping, mapping_status, project_id
 from .exports import poll_export, submit_export
@@ -44,7 +44,7 @@ def launch_worker(store, job_id):
 
 
 class Assistant:
-    def __init__(self, store, *, engine_commit, profile=None, parser=None, launcher=None):
+    def __init__(self, store, *, engine_commit, profile=None, parser=None, launcher=None, before_live=None):
         if not re.fullmatch(r"[0-9a-f]{40}", engine_commit or "") or engine_commit == "0" * 40:
             raise ValueError("Supply the installed engine source commit")
         self.store, self.engine_commit = store, engine_commit
@@ -52,6 +52,7 @@ class Assistant:
         project_id(self.profile["project"])
         RunRequest({"request_id": str(uuid4()), **{k: v for k, v in self.profile.items() if k != "project"}})
         self.parser, self.launcher = parser or GuidedParser(), launcher or launch_worker
+        self.before_live = before_live or (lambda: None)
         self.pending = None  # Restart never restores an executable confirmation button.
         self.selected = None
         self.clarification = None
@@ -63,7 +64,7 @@ class Assistant:
     def _choose(self, identifier=None):
         identifier = identifier or self.selected
         if identifier is None:
-            raise ValueError("ابتدا یک ZIP وارد کن یا شناسهٔ کار را از فرمان jobs انتخاب کن.")
+            raise ValueError("Upload a previous result ZIP or select a job first.")
         job = self.store.get(identifier)
         if job["kind"] not in {"mapping", "export", "assistant_snapshot"}:
             raise ValueError("Choose a mapping or export job")
@@ -80,9 +81,32 @@ class Assistant:
     def _draft(self, inputs):
         draft = self.store.create("assistant_draft", "draft:" + str(uuid4()), inputs, state="prepared")
         self.pending = draft["job_id"]
-        return {"type": "preview", "message": "این تنظیمات را بررسی کن؛ هنوز کاری اجرا نشده است.",
+        return {"type": "preview", "message": "Please review these settings. Nothing has started yet.",
                 "draft_id": self.pending, "settings": inputs,
                 "scope": "Mapping produces saved graphs. Pilot exports one small window; neither delivers the entire AOI TIFF."}
+
+    def prepare_mapping(self, settings=None):
+        """The form and chat use the same validation/confirmation boundary."""
+        self.discard()
+        parsed = validate_intent({"action": "mapping", "settings": settings or {}, "job_id": None, "question": None})
+        request = RunRequest({**{k: v for k, v in self.profile.items() if k != "project"},
+                              **parsed["settings"], "request_id": str(uuid4())})
+        return self._draft({"action": "mapping", "project": self.profile["project"],
+            "engine_commit": self.engine_commit, "request": request.to_dict()})
+
+    def prepare_pilot(self, job_id=None):
+        self.discard()
+        mapping = self._choose(job_id)
+        if mapping["kind"] in {"export", "assistant_snapshot"}:
+            mapping = self.store.get(mapping["inputs"]["mapping_job_id"])
+        if mapping["kind"] != "mapping" or mapping["state"] != "completed":
+            raise ValueError("Select a completed mapping or import a previous result first.")
+        checked = checked_mapping_bundle(self.store, mapping)
+        artifact = next(o["artifact_id"] for o in checked["result"].to_dict()["outputs"] if o["kind"] == "final_map")
+        self.before_live()
+        plan = plan_pilot(self.store, mapping["job_id"])
+        return self._draft({"action": "pilot", "mapping_job_id": mapping["job_id"],
+            "artifact_id": artifact, "plan": plan})
 
     def say(self, text):
         if not isinstance(text, str) or not text.strip() or len(text) > 4000:
@@ -104,22 +128,15 @@ class Assistant:
             return self._draft({"action": "mapping", "project": self.profile["project"],
                 "engine_commit": self.engine_commit, "request": request.to_dict()})
         if action == "pilot":
-            mapping = self._choose(parsed["job_id"])
-            if mapping["kind"] != "mapping" or mapping["state"] != "completed":
-                raise ValueError("Choose a completed mapping UUID from jobs")
-            checked = checked_mapping_bundle(self.store, mapping)
-            artifact = next(o["artifact_id"] for o in checked["result"].to_dict()["outputs"] if o["kind"] == "final_map")
-            plan = plan_pilot(self.store, mapping["job_id"])
-            return self._draft({"action": "pilot", "mapping_job_id": mapping["job_id"],
-                "artifact_id": artifact, "plan": plan})
+            return self.prepare_pilot(parsed["job_id"])
         if action == "jobs":
-            return {"type": "jobs", "message": "کارهای ثبت‌شده؛ این فهرست سرور را فراخوانی نمی‌کند.", "jobs": self.jobs()}
+            return {"type": "jobs", "message": "Here are your saved jobs. This list does not query Earth Engine.", "jobs": self.jobs()}
         if action in {"status", "result"}:
             return self.describe(parsed["job_id"])
         if action == "clarify":
             self.clarification = {"request": text, "question": parsed["question"]}
             return {"type": "clarify", "message": parsed["question"] or HELP}
-        return {"type": "help", "message": HELP}
+        return {"type": "help", "message": GUIDED_HELP if isinstance(self.parser, GuidedParser) else HELP}
 
     def confirm(self, draft_id):
         with self.store.lock("assistant-confirm"):
@@ -127,9 +144,10 @@ class Assistant:
             if draft_id != self.pending or draft["kind"] != "assistant_draft" or draft["state"] != "prepared":
                 raise ValueError("Preview expired/already consumed. Prepare and review a new request.")
             data = draft["inputs"]
+            self.before_live()
             if data["action"] == "mapping" and any(j["state"] in {"queued", "running"}
                     for j in self.store.list(kind="mapping")):
-                raise ValueError("یک اجرای مدل در صف یا در حال اجراست؛ ابتدا وضعیت آن را بررسی کن. هیچ کار تازه‌ای ایجاد نشد.")
+                raise ValueError("A mapping is already queued or running. Check that job first; no new work was created.")
             # Persist consumption BEFORE any remote work. Uncertainty is not retried automatically.
             draft = self.store.update(draft, state="consumed")
             self.pending = None
@@ -149,7 +167,7 @@ class Assistant:
                 else:
                     raise ValueError("Unsupported confirmed action")
             except Exception as exc:
-                return {"type": "execution_error", "message": "اجرا تأیید نشد؛ وضعیت کار را بررسی کن. تکرار خودکار انجام نمی‌شود.",
+                return {"type": "execution_error", "message": "Execution could not be confirmed. Check the job status before trying again; there is no automatic retry.",
                         "error_type": type(exc).__name__, "job_id": job["job_id"] if job else None}
             return self.describe(job["job_id"])
 
@@ -182,7 +200,7 @@ class Assistant:
         response = {"type": "mapping", "job_id": job["job_id"], "state": job["state"],
             "source": "local_ledger", "observed_at": now(), "error": job.get("error"),
             "engine_status": status.get("engine_status"),
-            "message": "وضعیت اجرای موتور؛ completed در این مرحله به معنی آماده‌شدن گراف‌ها است، نه تحویل TIFF کل منطقه."}
+            "message": "This is the mapping-engine status. A completed mapping contains saved map graphs; it does not mean the entire area has been delivered as a TIFF."}
         if job["state"] == "completed":
             checked = checked_mapping_bundle(self.store, job)
             result = checked["result"].to_dict()
@@ -203,15 +221,17 @@ class Assistant:
             "error": job.get("error"), "destination_uris": job.get("destination_uris", []),
             "drive_folder": job.get("drive_folder"), "spec": spec,
             "coverage": "pilot_window_only" if pilot else "requested_full_region",
-            "message": ("این خروجی فقط پایلوت است؛ موفقیت آن تحویل کل منطقه را تأیید نمی‌کند. " if pilot else "") +
-                "وضعیت متعلق به زمان ثبت است. فایل TIFF در این گزارش باز نشده؛ مساحت کلاس‌ها محاسبه نشده است."}
+            "message": ("This result covers one pilot window only. It does not confirm delivery of the entire area. " if pilot else "") +
+                "This status belongs to the recorded time. The TIFF has not been inspected here and class areas have not been calculated."}
 
     def refresh(self, job_id=None):
         job = self._choose(job_id)
         if job["kind"] == "assistant_snapshot":
+            self.before_live()
             restored = recover_pilot(self.store, job["inputs"]["mapping_job_id"], job["inputs"]["context"])
             self.selected = restored["job_id"]
         elif job["kind"] == "export":
+            self.before_live()
             poll_export(self.store, job["job_id"])
         # Mapping is a local worker; poll_export also keeps terminal records local.
         return self.describe()

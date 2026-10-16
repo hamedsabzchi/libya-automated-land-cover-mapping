@@ -97,7 +97,21 @@ WP03 ports the final active GEE **modeling core** documented in [WP01](docs/gee-
 
 See [Python engine integration](docs/python-engine-integration.md) for usage, compatibility notes and checks. Offline software tests include comparisons with extracted GEE client functions and serialization using the actual Earth Engine Python client. The [Tripoli live comparison](docs/wp04-tripoli-comparison.md) now matches all recorded observation groups; additional WP04 cases remain open. WP05 adds a separate job/export layer described below; the adapter itself does not implement jobs or change the GEE reference. WP06 adds a bounded conversational interface; direct-download services remain later work.
 
-## Conversational assistant (WP06)
+## Start here: English assistant without a paid API (WP07)
+
+[Open the free-English-chat notebook in Colab](https://colab.research.google.com/github/hamedsabzchi/libya-automated-land-cover-mapping/blob/feat/wp07-free-colab-chat/python/07_wp07_free_english_assistant.ipynb).
+Run **Set up**, then **Open assistant**. The language model runs inside your Colab
+runtime: no OpenAI key, paid inference service, rented server or Colab Pro subscription
+is required by the notebook. Upload a previous result ZIP, chat in English, review
+new mapping requests, and use the buttons for status, results and downloads.
+
+Version 0.7 keeps the existing engine and explicit execution confirmation. It adds
+a small local language model and an English interface intended for nontechnical
+users. Free Colab resources are limited; first model loading can take several
+minutes and CPU replies can take tens of seconds. Existing authorized GEE access is
+still required for live operations. See [WP07 use and limitations](docs/wp07-free-colab-chat.md).
+
+## Earlier API-based conversational assistant (WP06)
 
 Version 0.6 adds a private Colab/Jupyter chat interface over the existing mapping,
 job and pilot-export services. Review a request before confirming execution, ask

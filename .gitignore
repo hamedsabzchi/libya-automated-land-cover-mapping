@@ -23,5 +23,6 @@ tripoli-pilot-store/
 assistant-store/
 assistant-upload.zip
 assistant-report.json
+landcover-chat-model/
 *.sqlite3
 *.sqlite3-journal
