@@ -16,7 +16,8 @@ def add_parser(commands):
     enqueue.add_argument("--engine-commit", required=True)
     adopt = sub.add_parser("import-bundle", help="Adopt a completed WP04 ZIP without running seed search")
     adopt.add_argument("archive")
-    sub.add_parser("work-one", help="Run one queued mapping job in this process")
+    worker = sub.add_parser("work-one", help="Run one queued mapping job in this process")
+    worker.add_argument("--job-id", help="Run only this queued mapping, never another queue entry")
     sub.add_parser("list", help="List recorded jobs without querying EE")
     for name in ("show", "events", "cancel-mapping", "export-submit", "export-poll", "export-cancel"):
         command = sub.add_parser(name)
@@ -38,7 +39,7 @@ def execute(args):
     elif command == "import-bundle":
         result = import_bundle(store, args.archive)
     elif command == "work-one":
-        result = work_one(store)
+        result = work_one(store, job_id=args.job_id)
     elif command == "list":
         result = store.list()
     elif command == "show":

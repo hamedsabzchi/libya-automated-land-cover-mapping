@@ -20,5 +20,8 @@ gee-evidence.json
 job-store/
 pilot-store/
 tripoli-pilot-store/
+assistant-store/
+assistant-upload.zip
+assistant-report.json
 *.sqlite3
 *.sqlite3-journal

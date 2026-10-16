@@ -156,7 +156,7 @@ def enqueue_mapping(store, request, *, project, engine_commit):
                         extra={"origin": "queued"})
 
 
-def work_one(store):
+def work_one(store, job_id=None):
     """Run one mapping request. Invoke from a separate process for background work.
 
     Crash recovery never retries an uncertain model run automatically. The process
@@ -164,6 +164,10 @@ def work_one(store):
     """
     from . import cli
     with store.lock("mapping-worker"):
+        if job_id is not None:
+            target = store.get(job_id)
+            if target["kind"] != "mapping":
+                raise ValueError("Worker target must be a mapping job")
         for old in store.list(kind="mapping", state="running"):
             try:
                 checked = checked_mapping_bundle(store, old)
@@ -174,6 +178,8 @@ def work_one(store):
                 store.update(old, state="interrupted", error={"code": "WORKER_INTERRUPTED",
                     "message": "Previous worker ended without a verified completed bundle. No automatic retry."})
         jobs = store.list(kind="mapping", state="queued")
+        if job_id is not None:
+            jobs = [job for job in jobs if job["job_id"] == job_id]
         if not jobs:
             return None
         job = jobs[0]
