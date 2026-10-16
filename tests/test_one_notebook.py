@@ -1,5 +1,4 @@
 """Fresh-user journey in one notebook. Remote compute/auth are mocked explicitly."""
-from datetime import datetime, timezone
 import json
 from pathlib import Path
 import tempfile
@@ -16,6 +15,10 @@ from test_jobs import bundle_files
 
 class OneNotebookTests(unittest.TestCase):
     def setUp(self):
+        try:
+            import ipywidgets
+        except ImportError:
+            self.skipTest("Install [chat] to exercise widgets; package CI requires it")
         self.temp = tempfile.TemporaryDirectory(); self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
         self.launcher = Mock()
@@ -109,6 +112,9 @@ class OneNotebookTests(unittest.TestCase):
         self.ui.confirm.click()
         self.launcher.assert_not_called()
 
+
+
+class NotebookEntryTests(unittest.TestCase):
     def test_single_start_notebook_has_no_prerequisite_upload(self):
         path = Path(__file__).resolve().parents[1] / 'python/07_wp07_free_english_assistant.ipynb'
         notebook = json.loads(path.read_text())
