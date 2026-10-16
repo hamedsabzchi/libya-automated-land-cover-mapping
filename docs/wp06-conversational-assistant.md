@@ -1,0 +1,137 @@
+# WP06 — a bounded conversational assistant
+
+The user can now propose a mapping request, review its exact settings, run the
+existing engine, inspect recorded work, and obtain links from the existing export
+service through a Colab/Jupyter chat interface. This is a single-owner MVP, not a
+hosted multi-user service. The GEE reference, Python modeling engine, adapter and
+WP02 contracts are unchanged. Full-region export scheduling is deliberately paused.
+
+## Start with the existing successful pilot
+
+Open [the WP06 Colab notebook](../python/06_wp06_landcover_assistant.ipynb).
+
+1. Run cell 1 to install the pinned package with the `chat` extra.
+2. Run cell 2 to choose **guided** or **openai** mode. The default Tripoli profile
+   contains the user's previously supplied project and asset paths. Review it.
+3. Run cell 3 and upload the successful **cell 7 pilot ZIP**. This imports the
+   checked mapping graphs and shows the archived export observation. It performs
+   no Earth Engine calls and starts no model/export. A WP04 completed ZIP also works.
+4. Run cell 4 to open chat. Send `نتیجه`, `وضعیت`, or `jobs`. The pilot Drive link
+   comes from the uploaded evidence, with its recorded time and `pilot_window_only`
+   scope. No TIFF is uploaded or inspected by this interface.
+5. Cell 5 is needed only before live refresh, new mapping or pilot preparation:
+   authenticate Earth Engine and initialize the configured project.
+
+The previous long-running full-area operation is not automatically inspected,
+cancelled or replaced. This notebook does not turn pilot success into full-AOI
+delivery. A WP05 full-area backup imports its checked mapping bundle only; use the
+WP05 notebook to manage that older export.
+
+## Two explicitly different language modes
+
+**Guided** needs no OpenAI key. It recognizes this limited Persian/English command
+grammar; it is not presented as an LLM:
+
+| Message | Action |
+| --- | --- |
+| `map 2024` / `نقشه ۲۰۲۴` | Preview a request with the active profile |
+| `/map {"target_year":2024,"aoi_asset":"projects/…/assets/…","training_asset":"projects/…/assets/…"}` | Preview explicit inputs |
+| `jobs` / `کارها` | List local mapping/export records |
+| `status` / `وضعیت` | Show the selected job's recorded status |
+| `result` / `نتیجه` | Show the selected job's actual available result |
+| `pilot` / `پایلوت` | Geometry-only preparation of one 1024×1024 export window |
+| `help` / `راهنما` | Explain the scope and commands |
+
+`status`, `result` and `pilot` accept an optional canonical job UUID. Otherwise use
+the Job dropdown. Select a completed **mapping** before requesting a pilot.
+
+**OpenAI** interprets free Persian/English text into the same allowlisted intents.
+Examples: “برای طرابلس نقشهٔ پوشش زمین سال ۲۰۲۴ را آماده کن”, “سال را به ۲۰۲۳
+تغییر بده”, “وضعیت کار انتخاب‌شده چیست؟”. It uses the Responses API with a strict
+JSON schema. The notebook's configurable example model is `gpt-4.1-mini`.
+Enter a key through `getpass`, never in source code or chat. An API account with
+access to the configured model is required. Errors/refusals/incomplete responses
+do not submit work and do not silently fall back to another model.
+
+OpenAI receives the current message, active/pending settings, and at most one
+previous clarification. `store=false` is sent. The program does not attach job
+results, raster data, graphs, training rows, GEE credentials or the API key to the
+model input. This is not a zero-retention guarantee; provider data controls still
+apply. Do not paste secrets into the chat. The key stays in process memory and is
+not written into result reports/backups or passed to the mapping subprocess.
+
+## Execution boundary
+
+- A chat message can **prepare**, read or explain; it cannot confirm execution.
+- The preview contains the fully validated `RunRequest`, project and source commit,
+  or the exact existing pilot specification. Only the separate **Run** button calls
+  `confirm(draft_id)`. Typing “yes” has no execution authority.
+- New messages/discard/selection changes invalidate the old preview. Restarting
+  the UI does not restore a live confirmation button. Double confirmation is
+  rejected. Consumed drafts and their job IDs remain in the local ledger.
+- One mapping is allowed at a time. It runs in a separate process through the
+  existing CLI, with the new additive `work-one --job-id UUID` option. This prevents
+  an unrelated older queue entry from running instead of the confirmed request.
+- Pilot exports reuse WP05B's deterministic identity and WP05's submission/recovery
+  behavior. There is no automatic new request ID, retry, cancellation or bulk tiling.
+- Only year/AOI/training may be proposed in chat. The profile and existing contract
+  supply the other model settings. Reference-model semantics are not changed.
+
+## Evidence, refresh and reports
+
+Result/status replies are assembled from validated local bundles and job records,
+not generated by the language model. They do not assess accuracy or fabricate area
+statistics, class percentages, ETAs or full-region completion.
+
+`completed` on a **mapping** means saved graphs, not a delivered TIFF. `completed`
+on a **pilot export** means that window's export. Uploaded observations are labeled
+`uploaded_archive_snapshot`; normal records are `local_ledger`. **Refresh status**
+reattaches a pilot snapshot by its exact operation identity or polls an active
+export. Existing terminal export records are retained locally by WP05's poller.
+Mapping refresh reads the local worker status; it is not an EE batch-task query.
+
+**Download report** saves selected-job metadata as JSON. **Download backup** saves
+one completed mapping bundle or one pilot handoff, including graphs and recovery
+metadata. Neither includes raster pixels, chat history or credentials. Reimport
+that ZIP in cell 3 after a runtime reset. The archive is parsed through the existing
+checked importer; uploaded code and SQL are never executed.
+
+Keep the Colab runtime connected while the Python mapping worker is running.
+Unlike a submitted EE export, that worker is local to Colab. A backup of an active
+mapping is not provided by this MVP. If a process could not launch and a job stays
+queued, inspect its `worker.log` and the job record before explicitly running:
+
+```bash
+libya-landcover jobs --store assistant-store work-one --job-id YOUR_JOB_UUID
+```
+
+This runs only that queued identity; it does not retry terminal work. Existing
+WP05 interrupted-worker recovery remains in effect. Do not recreate the mapping
+just to obtain another job ID. Unknown full-region delivery performance remains
+outside WP06 acceptance.
+
+## Validation and remaining live check
+
+Automated coverage exercises confirmation/replay, stale drafts, restart behavior,
+contract rejection, exact-job worker selection, subprocess isolation, parser
+refusal/error handling, pilot preview/submit separation, snapshot provenance,
+portable backup round trips and escaped widget rendering. Tests use mocked API
+responses, not a live OpenAI conversation or authenticated GEE run.
+
+Implementation verification on 2026-10-16: **110 unit/integration tests** and
+**9 repository checks** passed. The built 0.6.0 wheel was installed outside the
+source checkout. Notebook cells 2–5 were exercised with Colab upload/download and
+authentication mocked, using the user's actual completed pilot handoff. Import,
+recorded result/status, widget interactions, JSON report, backup and fresh-store
+reimport passed with network access blocked. The recorded pilot remained
+`SUCCEEDED`, attempt 1, and `pilot_window_only`; no new model/export was started.
+All 13 protected reference/model/contract files retained their prior SHA-256 hashes.
+
+The acceptance handoff is to open the notebook, import the already successful
+pilot ZIP, inspect its result, then test one natural-language request in OpenAI
+mode. A new live model/export run is not required to verify import/status/report
+interaction. Do not claim live language-model quality from the offline tests.
+
+Official API references used for this integration:
+- [Structured Outputs](https://developers.openai.com/api/docs/guides/structured-outputs)
+- [GPT-4.1 mini compatibility](https://developers.openai.com/api/docs/models/gpt-4.1-mini)

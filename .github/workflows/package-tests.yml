@@ -24,7 +24,7 @@ jobs:
       - name: Install wheel into a fresh environment
         run: |
           python -m venv /tmp/wp04-wheel
-          /tmp/wp04-wheel/bin/pip install dist/*.whl
+          /tmp/wp04-wheel/bin/pip install "$(ls dist/*.whl)[chat]"
       - name: Exercise installed commands outside the source checkout
         working-directory: /tmp
         run: |

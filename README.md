@@ -95,7 +95,21 @@ libya-automated-land-cover-mapping/
 
 WP03 ports the final active GEE **modeling core** documented in [WP01](docs/gee-reference-spec.md): input normalization/preflight, separate national/AOI predictors, per-class sorted splits, terrain masks, existing temporal and selection rules, failed-candidate continuation and retained selected graphs. `python/assistant_adapter.py` connects this engine to the [WP02 contracts](docs/assistant-contracts.md) in `contracts/` and emits linked status/result objects with session-local map references.
 
-See [Python engine integration](docs/python-engine-integration.md) for usage, compatibility notes and checks. Offline software tests include comparisons with extracted GEE client functions and serialization using the actual Earth Engine Python client. The [Tripoli live comparison](docs/wp04-tripoli-comparison.md) now matches all recorded observation groups; additional WP04 cases remain open. WP05 adds a separate job/export layer described below; the adapter itself does not implement jobs or change the GEE reference. Direct-download services and the chatbot UI remain later work.
+See [Python engine integration](docs/python-engine-integration.md) for usage, compatibility notes and checks. Offline software tests include comparisons with extracted GEE client functions and serialization using the actual Earth Engine Python client. The [Tripoli live comparison](docs/wp04-tripoli-comparison.md) now matches all recorded observation groups; additional WP04 cases remain open. WP05 adds a separate job/export layer described below; the adapter itself does not implement jobs or change the GEE reference. WP06 adds a bounded conversational interface; direct-download services remain later work.
+
+## Conversational assistant (WP06)
+
+Version 0.6 adds a private Colab/Jupyter chat interface over the existing mapping,
+job and pilot-export services. Review a request before confirming execution, ask
+for recorded status/results, or import an existing pilot ZIP without rerunning the
+model. Free Persian/English text uses an optional OpenAI API key; a clearly labeled
+guided-command mode works without one. Replies use actual records, and distinguish
+saved model graphs, a successful pilot window, and full-region delivery.
+
+Start with the [WP06 notebook](python/06_wp06_landcover_assistant.ipynb) and
+[usage, execution boundaries and limitations](docs/wp06-conversational-assistant.md).
+The reference GEE code and Python modeling engine remain unchanged. This MVP does
+not yet compute class-area/change analyses or deliver a complete tiled region.
 
 ## Installable assistant runner (WP04)
 
