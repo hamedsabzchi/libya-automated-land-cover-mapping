@@ -68,6 +68,21 @@ boundary and training data. A rejected/invalid model reply creates no job and as
 the user to rephrase or use the direct controls. This is a task-specific assistant,
 not a promise of general ChatGPT-level conversation.
 
+## Updating an already open session
+
+Start assistant now detects an older imported package, installs the pinned service,
+and reloads the assistant's Python modules without deleting the runtime or work
+files. Old controls and pending confirmations are retired only after installation
+succeeds. Existing local chat weights can be reused. If the saved ledger reports
+queued/running mapping, the update pauses so the user can finish that work first.
+An unreadable ledger also blocks the update. There is no automatic kernel restart,
+job submission, export cancellation, or data deletion.
+
+Three isolated regression scenarios cover stale-module upgrade/data preservation,
+active-mapping protection and failed-install preservation with pip/Colab/inference
+mocked. All 128 local tests pass; actual Colab behavior remains to be checked by
+the user.
+
 ## Resource and delivery limits
 
 Free Colab resources are limited and not guaranteed. CPU replies can take tens of
