@@ -120,6 +120,17 @@ This is a single-owner Python/CLI service foundation; it does not deploy a chatb
 or HTTP server. Automated checks are offline. A successful authenticated Tripoli
 export and inspection of the downloaded GeoTIFF remain live acceptance steps.
 
+### Bounded tile pilot (WP05B)
+
+The owner-run full-area export reached a second server attempt after more than
+ten hours. Version 0.5.1 adds one independently tracked, at-most 1024 × 1024 pixel
+pilot export on the same 10 m grid, plus progress/attempt metadata and portable
+recovery from WP05/pilot backups. It preserves the original operation and selected
+model. See [pilot instructions and continuity record](docs/wp05-tile-pilot.md)
+and [the pilot notebook](python/05_wp05_tripoli_tile_pilot.ipynb).
+This is a bounded delivery experiment; no full tiling campaign or performance
+improvement is claimed before inspecting a live pilot TIFF.
+
 ## Google Colab
 
 Open the notebook at:

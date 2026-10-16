@@ -92,6 +92,32 @@ class EarthEngineGraphTests(ApiTestCase):
                 backend.start(job['job_id'],payload)
             self.assertEqual(start.call_args.args,(job['job_id'],payload))
 
+            from libya_landcover.pilot import centered_spec
+            from libya_landcover.exports import window_bounds
+            spec = centered_spec([400005,3600005])
+            pilot = enqueue_export(store,source['job_id'],identifier,spec,request_id=str(uuid4()))
+            with patch.object(ee.batch.Export.image,'toDrive',wraps=ee.batch.Export.image.toDrive) as factory, \
+                    patch.object(lc,'search_seeds',side_effect=AssertionError('No seed search during pilot')), \
+                    patch.object(ee.data,'computeValue',side_effect=AssertionError('No raster preflight')):
+                bounded = backend.prepare(store,pilot)
+            expected = ee.Geometry.Rectangle(window_bounds(spec),proj='EPSG:32633',geodesic=False)
+            self.assertEqual(factory.call_args.kwargs['region'].serialize(),expected.serialize())
+            self.assertEqual(factory.call_args.kwargs['crsTransform'],[10,0,0,0,-10,0])
+            self.assertEqual(bounded['maxPixels']['value'],'1100000')
+            self.assertIn('Image.clip',factory.call_args.kwargs['image'].serialize())
+            self.assertEqual((store.folder(source['job_id'])/'bundle/graphs'/index['artifacts'][identifier]['file']).read_bytes(),graph)
+            from libya_landcover.pilot import plan_pilot
+            with patch.object(ee,'Initialize'), \
+                    patch.object(ee.data,'computeValue',side_effect=[[400005,3600005],100000000]) as geometry_reads:
+                plan = plan_pilot(store,source['job_id'])
+            self.assertEqual(plan['spec']['pixel_window'],spec['pixel_window'])
+            self.assertEqual(geometry_reads.call_count,2)
+            for call in geometry_reads.call_args_list:
+                self.assertNotIn('Classifier.train',call.args[0].serialize())
+            with patch.object(ee,'Initialize'), patch.object(ee.data,'computeValue',side_effect=[[400005,3600005],0]):
+                with self.assertRaisesRegex(ValueError,'does not overlap'):
+                    plan_pilot(store,source['job_id'])
+
     def test_wp04_graph_store_roundtrip_and_checksum(self):
         from libya_landcover.bundle import GraphArtifactStore
         image = lc.build_seed_model(self.cfg,42,prepared=self.prepare())['final_map']
