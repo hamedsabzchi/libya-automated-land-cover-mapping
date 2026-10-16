@@ -128,8 +128,10 @@ pilot export on the same 10 m grid, plus progress/attempt metadata and portable
 recovery from WP05/pilot backups. It preserves the original operation and selected
 model. See [pilot instructions and continuity record](docs/wp05-tile-pilot.md)
 and [the pilot notebook](python/05_wp05_tripoli_tile_pilot.ipynb).
-This is a bounded delivery experiment; no full tiling campaign or performance
-improvement is claimed before inspecting a live pilot TIFF.
+The [first live pilot TIFF passed delivery inspection](docs/wp05-pilot-live-inspection.md)
+in attempt 1 after 3 minutes 42 seconds. This establishes one aligned, nonempty
+tile export; it does not establish full-grid coverage or whole-AOI performance.
+No full tiling campaign has been launched.
 
 ## Google Colab
 

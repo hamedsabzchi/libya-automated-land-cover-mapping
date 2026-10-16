@@ -1,5 +1,10 @@
 # WP05B: one bounded tile delivery experiment
 
+**Live update, 2026-10-16:** the owner supplied a completed pilot and its actual
+TIFF. The single-tile grid/encoding/runtime acceptance passed in attempt 1,
+222.156897 seconds. See [inspection evidence](wp05-pilot-live-inspection.md).
+The full-area export and full-grid delivery remain separate open work.
+
 ## Continuity: what remains fixed and open
 
 The immutable reference is `gee/automated_land_cover_app.js`, SHA256
