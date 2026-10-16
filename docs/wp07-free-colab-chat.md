@@ -145,3 +145,18 @@ Primary references:
 - [Colab FAQ: resources, runtime lifecycle and notebook interaction](https://research.google.com/colaboratory/faq.html)
 - [Publisher's model card and license](https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct)
 
+
+## Closed-console logging fix
+
+Loading Transformers while redirecting stderr to a short-lived startup file left
+its logging handler attached to a closed stream. Later generation warnings then
+printed a logging traceback. Startup no longer redirects the model's console
+streams. It also repairs already-closed console StreamHandlers before loading or
+reusing chat, without retargeting FileHandlers or changing logger levels. This
+notebook-only repair uses the same service/model pin and can run without upgrading
+the package or interrupting its separate mapping worker. No new work is submitted.
+
+Three regression tests use real logging handlers to reproduce and repair the
+closed-stream warning, preserve valid/file handlers, and enforce repair before
+startup. A queued UI observation alone does not establish a failed worker; check
+the existing job's current status. No live user mapping was inspected remotely.
