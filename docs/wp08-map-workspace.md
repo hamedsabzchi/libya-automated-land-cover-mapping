@@ -45,3 +45,9 @@ Offline tests cover the reference legend, adjacent grid bounds, bounded viewport
 Live acceptance remains to be performed in an authorized Colab session: connect, open a completed retained map (or prepare one), see coloured land cover across the actual study area with the legend, select a non-centroid tile, confirm its export, and receive its Drive TIFF. Check that an outside-AOI tile is rejected and reopening the same year does not create another mapping job. Browser rendering, current Colab resources, chat quality and full-area interactive latency cannot be established by offline tests. A successful earlier pilot does not establish these new display checks.
 
 The implementation is provided on `feat/wp08-map-workspace`, stacked on WP07, for review; no merge into `main` is implied.
+
+## Display troubleshooting (0.8.1)
+
+A completed mapping job means its retained graphs are saved; it does not guarantee that the interactive layer opened. If the map stays on the basemap, do not rerun mapping. **Open / reload map** now shows the failure stage, exception type and server message in an expanded **Error details** panel. **Details and support → Save error / details** saves this diagnostic when a display error is present. Temporary URLs and authorization values are omitted.
+
+The stage distinguishes restoring the saved map, requesting the land-cover layer, reading the boundary, and building the notebook map interface. The UI no longer suggests a permission problem for every exception. The exact cause of the reported live display failure remains unconfirmed until its diagnostic is available. This patch does not change the model or automatically submit an export. Updating the Start assistant cell in the same connected runtime preserves the completed job files.

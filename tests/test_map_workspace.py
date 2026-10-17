@@ -155,6 +155,32 @@ class MapUiTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn('outside the study area',self.ui.notice.value)
         self.assertIsNone(self.ui.chat.selected_index)
 
+    async def test_display_failure_preserves_job_and_exposes_server_diagnostic(self):
+        from libya_landcover.map_view import MapDisplayError
+        self.viewer.open.side_effect=MapDisplayError('request_land_cover_layer',RuntimeError('User memory limit exceeded. https://example.test/?access_token=secret'))
+        self.ui.connection.click();await asyncio.sleep(.02)
+        self.assertIsNone(self.ui.map_data)
+        self.assertEqual(self.store.get(self.mid)['state'],'completed')
+        self.assertIn('User memory limit exceeded',self.ui.notice.value)
+        self.assertIn('request_land_cover_layer',self.ui.notice.value)
+        self.assertNotIn('secret',self.ui.notice.value)
+        self.assertNotIn('Connect Google and open',self.ui.progress.value)
+        self.assertIn('Open your prepared map',self.ui.step.value)
+        self.assertIn('<b>2. Prepare map</b>',self.ui.flow.value)
+        self.ui._save(False)
+        diagnostic=json.loads((self.store.root/'landcover-display-error.json').read_text())
+        self.assertEqual(diagnostic['selected_job_id'],self.mid)
+        self.ui._ensure_map();await asyncio.sleep(.02)
+        self.viewer.open.assert_called_once()
+        self.a.launcher.assert_not_called()
+        self.assertFalse(self.store.list(kind='export'))
+        self.viewer.open.side_effect=None
+        self.ui.open_button.click();await asyncio.sleep(.02)
+        self.assertIsNotNone(self.ui.raster)
+        self.assertIsNone(self.ui.last_error)
+        self.assertEqual(self.ui.notice.value,'')
+        self.assertIn('<b>3. Explore & download</b>',self.ui.flow.value)
+
 
 from test_ee_graphs import ee, ApiTestCase
 
@@ -197,6 +223,14 @@ class MapBackendGraphTests(ApiTestCase):
             self.assertIn(view['request']['aoi_asset'],expression)
             self.assertNotIn('GeometryConstructors.Rectangle',expression)
             self.assertIn('Geometry.bounds',compute.call_args.args[0].serialize())
+            from libya_landcover.map_view import MapDisplayError
+            with patch.object(ee,'Initialize'), patch.object(ee.Image,'getMapId',side_effect=RuntimeError('Test layer error')):
+                with self.assertRaises(MapDisplayError) as failure:backend.open(source['job_id'])
+            self.assertEqual(failure.exception.stage,'request_land_cover_layer')
+            self.assertEqual(failure.exception.detail,'Test layer error')
+            with patch.object(ee,'Initialize'), patch.object(ee.Image,'getMapId',return_value={'tile_fetcher':SimpleNamespace(url_format='unused')}), patch.object(ee.data,'computeValue',side_effect=RuntimeError('Test geometry error')):
+                with self.assertRaises(MapDisplayError) as failure:backend.open(source['job_id'])
+            self.assertEqual(failure.exception.stage,'read_study_area_boundary')
             spec=tile_spec(36864,-339968)
             with patch.object(ee,'Initialize'),patch.object(ee.data,'computeValue',return_value=100) as compute:
                 artifact,plan=backend.plan(source['job_id'],spec)

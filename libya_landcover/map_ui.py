@@ -3,8 +3,9 @@ import asyncio
 from html import escape
 import json
 from .chat_ui import ChatUI, render_reply, table, area_name
-from .map_view import feature, tile_at, tile_spec, visible_grid, legend_html
+from .map_view import feature, tile_at, tile_spec, visible_grid, legend_html, MapDisplayError, error_detail
 from .exports import poll_export
+from .job_store import now
 
 
 class MapUI(ChatUI):
@@ -12,6 +13,7 @@ class MapUI(ChatUI):
         import ipywidgets as w
         from ipyleaflet import Map,GeoJSON,LayersControl,ScaleControl
         self._map_ready=False;self._busy=False;self._polling=False
+        self.last_error=None
         self.map_data=None;self._attempted=None;self._load_task=None;self._poll_task=None
         self.poll_seconds=poll_seconds
         super().__init__(assistant,download=download,connect=connect)
@@ -69,6 +71,8 @@ class MapUI(ChatUI):
         message=reply.get('message','')
         if not user and reply.get('type') in {'error','execution_error'} and self._map_ready:
             self.notice.value='<p role="alert" style="padding:12px;background:#fff1df"><b>This step needs attention.</b> '+escape(str(message))+'</p>'
+            if reply.get('diagnostic'):
+                self.notice.value+='<details open><summary>Error details — share this text for support</summary><pre style="white-space:pre-wrap">'+escape(json.dumps(reply['diagnostic'],indent=2))+'</pre></details>'
         if not user:
             if reply.get('type')=='preview':
                 message='Review the choices above, then use the green confirmation button.'
@@ -101,11 +105,15 @@ class MapUI(ChatUI):
         self._visible(self.choices,self.live_ready and not self.assistant.pending and not mapping)
         self._visible(self.backup,ready)
         self._visible(self.new,bool(mapping and mapping['state'] in {'completed','failed','interrupted'}) and not self.assistant.pending)
-        stage=3 if ready else (2 if self.live_ready else 1)
+        stage=1 if not self.live_ready else (3 if self.map_data else 2)
         self.flow.value='<p style="padding:12px;background:#eaf2f8">'+ ' &nbsp; → &nbsp; '.join(
             ('<b>'+str(i)+'. '+label+'</b>') if i==stage else str(i)+'. '+label
             for i,label in enumerate(['Connect','Prepare map','Explore & download'],1))+'</p>'
-        if not self.assistant.pending:self.step.value='<h3>'+('Preparing your map' if mapping and mapping['state'] in {'queued','running'} else {1:'Connect your Google account',2:'Choose your map',3:'Explore your map and choose a tile'}[stage])+'</h3>'
+        if not self.assistant.pending:
+            heading={1:'Connect your Google account',2:'Choose your map',3:'Explore your map and choose a tile'}[stage]
+            if self.live_ready and mapping and mapping['state'] in {'queued','running'}:heading='Preparing your map'
+            if self.live_ready and ready and not self.map_data:heading='Open your prepared map'
+            self.step.value='<h3>'+heading+'</h3>'
         if self.assistant.pending:
             data=self.assistant.store.get(self.assistant.pending)['inputs']
             if data['action']=='mapping':
@@ -118,7 +126,11 @@ class MapUI(ChatUI):
         if self.assistant.selected:
             r=self.assistant.describe();state=r['state']
             if r['type']=='mapping':
-                msg=('Map preparation finished. Explore the map below.' if self.map_data else 'Map preparation finished. Connect Google and open the map below.') if state=='completed' else 'Preparing your map. Keep this notebook connected.'
+                if state=='completed':
+                    msg=('Map preparation finished. Explore the map below.' if self.map_data else
+                         'Your prepared map is saved. Use Open / reload map below; do not create it again.' if self.live_ready else
+                         'Your prepared map is saved. Connect Google to open it; do not create it again.')
+                else:msg='Preparing your map. Keep this notebook connected.'
                 if state in {'failed','interrupted'}:msg='Map preparation stopped. Save the details under Details and support.'
             else:
                 msg='Your tile download is ready.' if state=='completed' else 'Your selected download is being prepared. You can continue exploring the map.'
@@ -137,15 +149,25 @@ class MapUI(ChatUI):
         self.map_note.value='<p>Basemap only. Waiting for your current land-cover layer.</p>'
 
     def _open_map(self):
+        try:
+            result=self._mount_map()
+            self.last_error=None;self.notice.value=''
+            return result
+        except MapDisplayError:raise
+        except Exception as exc:raise MapDisplayError('open_map_interface',exc) from exc
+
+    def _mount_map(self):
         from ipyleaflet import TileLayer,GeoJSON
         data=self.assistant.open_map()
-        self._clear_map();self.map_data=data;self.assistant.map_id=data['mapping_id']
-        self.raster=TileLayer(url=data['url'],name='Land cover '+str(data['request']['target_year']),attribution='Google Earth Engine · The AlphaEarth Foundations Satellite Embedding dataset is produced by Google and Google DeepMind.',max_zoom=22)
-        self.outline=GeoJSON(data=data['outline'],name='Study-area boundary',style={'color':'#222','weight':2,'fillOpacity':0})
+        raster=TileLayer(url=data['url'],name='Land cover '+str(data['request']['target_year']),attribution='Google Earth Engine · The AlphaEarth Foundations Satellite Embedding dataset is produced by Google and Google DeepMind.',max_zoom=22)
+        outline=GeoJSON(data=data['outline'],name='Study-area boundary',style={'color':'#222','weight':2,'fillOpacity':0})
+        self._clear_map();self.assistant.map_id=data['mapping_id'];self._attempted=data['mapping_id']
+        self.raster=raster;self.outline=outline
         self.map.add(self.raster);self.map.add(self.outline)
         # Selection overlays must stay above the raster.
         self.map.remove(self.grid);self.map.remove(self.highlight);self.map.add(self.grid);self.map.add(self.highlight)
         self.map.fit_bounds(data['bounds'])
+        self.map_data=data
         self.map_note.value='<p><b>'+escape(area_name(data['request']))+' · '+str(data['request']['target_year'])+'</b> — full study-area layer requested. Coloured tiles load as you pan and zoom. If they stay blank, use Open / reload map; a basemap alone is not a land-cover result.</p>'
         self._draw_grid()
         return {'message':'The land-cover layer is open. Use the legend below it. Zoom in, click a grid square, then choose Download selected tile.'}
@@ -176,12 +198,29 @@ class MapUI(ChatUI):
     def _action(self,action):
         if self._busy or self._polling or self._closed:return
         self._busy=True
-        if self._map_ready:self.notice.value=''
-        try:super()._action(action)
+        def observed():
+            try:return action()
+            except Exception as exc:
+                display_error=isinstance(exc,MapDisplayError)
+                self.last_error={'observed_at':now(),'stage':exc.stage if display_error else 'interface_action',
+                    'error_type':exc.error_type if display_error else type(exc).__name__,
+                    'detail':exc.detail if display_error else error_detail(exc),
+                    'selected_job_id':self.assistant.selected}
+                return {'type':'error','message':('The land-cover display could not open. Your prepared map is still saved; do not run mapping again. See the error details below.' if display_error else 'This step could not finish. See the error details below.'),
+                    'diagnostic':self.last_error}
+        try:super()._action(observed)
         finally:
             self._busy=False
             if self._map_ready:
                 self.sync();self._ensure_map()
+
+    def _save(self,backup):
+        if backup or not self.last_error:return super()._save(backup)
+        from .bundle import write_json
+        path=self.assistant.store.root/'landcover-display-error.json'
+        write_json(path,self.last_error)
+        if self.download:self.download(str(path))
+        return {'message':'Display error details saved. Your map and downloads have not been changed.'}
 
     def _send(self,_):
         text=self.message.value.strip()

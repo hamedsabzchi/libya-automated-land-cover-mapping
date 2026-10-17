@@ -1,5 +1,6 @@
 """Display and bounded delivery over the retained graph. No classification changes."""
 import math
+import re
 from html import escape
 from .bundle import GraphArtifactStore
 from .exports import export_spec, window_bounds
@@ -11,6 +12,27 @@ CLASS_NAMES = ['Forest','Shrubland','Grassland','Cultivated rainfed','Cultivated
                'Orchards','Bare soil/sand','Rocks','Built up','Artificial water','Seasonal water','Sebkha']
 CRS = 'EPSG:32633'
 SIDE = 1024
+
+
+def error_detail(exc):
+    """Useful server text, without temporary URLs or authorization values."""
+    value=str(exc)
+    value=re.sub(r'https?://[^\s<>]+', '[URL omitted]', value)
+    value=re.sub(r'(?i)(bearer\s+|(?:access_token|refresh_token|api_key|authorization)\s*[:=]\s*)[^\s,;]+', r'\1[redacted]', value)
+    return value[:4000] or type(exc).__name__
+
+
+class MapDisplayError(RuntimeError):
+    def __init__(self,stage,cause):
+        self.stage=stage
+        self.error_type=type(cause).__name__
+        self.detail=error_detail(cause)
+        super().__init__(f'{stage}: {self.error_type}: {self.detail}')
+
+
+def display_step(stage,action):
+    try:return action()
+    except Exception as exc:raise MapDisplayError(stage,exc) from exc
 
 
 def legend_html():
@@ -83,14 +105,14 @@ class MapBackend:
         return ee,checked,artifact,image,aoi
 
     def open(self, mapping_id):
-        ee,checked,artifact,image,aoi=self.source(mapping_id)
+        ee,checked,artifact,image,aoi=display_step('restore_saved_map',lambda:self.source(mapping_id))
         # Clip to the full actual AOI, never to the old pilot window. No resampling.
-        tiles=image.clip(aoi).getMapId({'min':1,'max':12,'palette':PALETTE})
+        tiles=display_step('request_land_cover_layer',lambda:image.clip(aoi).getMapId({'min':1,'max':12,'palette':PALETTE}))
         # Simplification affects the outline only; classification clipping is exact.
-        geometries=ee.Dictionary({'outline':aoi.simplify(100).transform('EPSG:4326',10).coordinates(),
+        geometries=display_step('read_study_area_boundary',lambda:ee.Dictionary({'outline':aoi.simplify(100).transform('EPSG:4326',10).coordinates(),
             'outline_type':aoi.simplify(100).type(),
             'wgs_bounds':aoi.bounds(10,'EPSG:4326').coordinates(),
-            'utm_bounds':aoi.bounds(10,ee.Projection(CRS)).coordinates()}).getInfo()
+            'utm_bounds':aoi.bounds(10,ee.Projection(CRS)).coordinates()}).getInfo())
         ring=geometries['wgs_bounds'][0];xy=geometries['utm_bounds'][0]
         west,east=min(p[0] for p in ring),max(p[0] for p in ring)
         south,north=min(p[1] for p in ring),max(p[1] for p in ring)

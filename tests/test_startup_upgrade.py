@@ -25,7 +25,7 @@ with tempfile.TemporaryDirectory() as folder:
     old_ui = types.SimpleNamespace(widget=widget)
     parser = LocalParser(lambda _: '{}', device='test')
     if scenario == 'active': old.store.create('mapping', 'existing', {}, state='running')
-    libya_landcover.__version__ = '0.7.0'
+    libya_landcover.__version__ = '0.8.0'
     ns = {'assistant':old, 'ui':old_ui, 'local_parser':parser}
     commands = Mock(side_effect=subprocess.CalledProcessError(1,['pip'])) if scenario=='install_failure' else Mock()
     messages = []
@@ -34,7 +34,7 @@ with tempfile.TemporaryDirectory() as folder:
     with patch.dict(sys.modules,{'google.colab':colab}), \
          patch('IPython.display.display',side_effect=display), patch('IPython.display.clear_output'), \
          patch('subprocess.run',commands), \
-         patch('importlib.metadata.version',side_effect=lambda name:'2.6.0' if name=='torch' else '0.8.0'), \
+         patch('importlib.metadata.version',side_effect=lambda name:'2.6.0' if name=='torch' else '0.8.1'), \
          patch('socket.socket.connect',side_effect=AssertionError('No network')):
         exec(source.replace('/content/',folder+'/'),ns)
         assert keep.read_text()=='preserve me' and old.store.database.exists()
@@ -50,7 +50,7 @@ with tempfile.TemporaryDirectory() as folder:
             assert ns['assistant'] is not old and ns['assistant'].store.root==old.store.root
             assert ns['assistant'].pending is None and old.store.get(draft)['state']=='discarded'
             assert ns['local_parser']._generate is parser._generate
-            assert sys.modules['libya_landcover'].__version__=='0.8.0'
+            assert sys.modules['libya_landcover'].__version__=='0.8.1'
             try: old.before_live()
             except ValueError: pass
             else: raise AssertionError('Old controls were not retired')
