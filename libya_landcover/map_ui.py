@@ -6,18 +6,19 @@ from .chat_ui import ChatUI, render_reply, table, area_name
 from .map_view import feature, tile_at, tile_spec, visible_grid, legend_html, MapDisplayError, error_detail
 from .exports import poll_export
 from .job_store import now
+from .notebook_map import NotebookMap, valid_bounds
 
 
 class MapUI(ChatUI):
     def __init__(self,assistant,*,download=None,connect=None,auto_poll=True,poll_seconds=20):
         import ipywidgets as w
-        from ipyleaflet import Map,GeoJSON,LayersControl,ScaleControl
+        from ipyleaflet import GeoJSON,LayersControl,ScaleControl
         self._map_ready=False;self._busy=False;self._polling=False
         self.last_error=None
         self.map_data=None;self._attempted=None;self._load_task=None;self._poll_task=None
         self.poll_seconds=poll_seconds
         super().__init__(assistant,download=download,connect=connect)
-        self.map=Map(center=(32.7,13.2),zoom=8,scroll_wheel_zoom=True,layout=w.Layout(height='520px',width='100%'))
+        self.map=NotebookMap(center=(32.7,13.2),zoom=8,scroll_wheel_zoom=True,layout=w.Layout(height='520px',width='100%'))
         self.map.add(LayersControl(position='topright'));self.map.add(ScaleControl(position='bottomleft'))
         self.grid=GeoJSON(data={'type':'FeatureCollection','features':[]},name='Download grid',
             style={'color':'#235b9d','weight':1,'fillOpacity':0.02},hover_style={'color':'#ffbf00','weight':3,'fillOpacity':0.15})
@@ -174,7 +175,7 @@ class MapUI(ChatUI):
 
     def _draw_grid(self):
         if not self._map_ready or not self.map_data:return
-        bounds=self.map.bounds or self.map_data['bounds']
+        bounds=self.map.bounds if valid_bounds(self.map.bounds) else self.map_data['bounds']
         data,limited=visible_grid(bounds,self.map_data['area_xy']) if self.grid_toggle.value else ({'type':'FeatureCollection','features':[]},False)
         self.grid.data=data
         self.grid_note.value='<p>Zoom in to see the download grid. You can still click a location to select its tile.</p>' if limited else '<p>Click a blue grid square. The selected download is outlined in gold. Edge tiles contain NoData outside the study area.</p>'
@@ -273,6 +274,7 @@ class MapUI(ChatUI):
 
     def close(self):
         super().close()
+        if self._map_ready:self.map.close()
         for task in (self._poll_task,self._load_task):
             if task:task.cancel()
 

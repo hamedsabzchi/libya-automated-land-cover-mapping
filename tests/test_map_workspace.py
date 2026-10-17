@@ -26,6 +26,32 @@ class LegendTests(unittest.TestCase):
 
 @unittest.skipUnless(HAS_MAP,'Install [map]; package CI requires it')
 class GridTests(unittest.TestCase):
+    def test_browser_null_bounds_reproduce_without_ee_and_safe_map_recovers(self):
+        from ipyleaflet import Map
+        from traitlets import TraitError
+        from libya_landcover.notebook_map import NotebookMap,valid_bounds
+        old=Map();self.addCleanup(old.close)
+        with self.assertRaisesRegex(TraitError,"'east'.*NoneType"):
+            old.set_state({'east':None})
+        current=NotebookMap();self.addCleanup(current.close)
+        good={'south':32.6,'north':33.0,'west':13.0,'east':13.6}
+        current.set_state(good)
+        self.assertTrue(valid_bounds(current.bounds))
+        before=current.bounds
+        for missing in (None,float('nan'),float('inf'),float('-inf')):
+            # Match the no-view JS frame; do not mix its south/north with old bounds.
+            current.set_state({'south':90,'north':-90,'west':missing,'east':missing,'zoom':7})
+            self.assertEqual(current.bounds,before)
+            self.assertEqual(current.zoom,7)
+        current.set_state({'left':10,'right':100,'top':20,'bottom':200})
+        pixels=current.pixel_bounds
+        current.set_state({'left':None,'right':None,'top':None,'bottom':None})
+        self.assertEqual(current.pixel_bounds,pixels)
+        current.set_state({**good,'east':14.0})
+        self.assertEqual(current.bounds,((32.6,13.0),(33.0,14.0)))
+        for invalid in (None,(),((None,13),(33,14)),((33,14),(32,13))):
+            self.assertFalse(valid_bounds(invalid))
+
     def test_grid_has_no_overlap_or_shift_and_roundtrips_click(self):
         a=tile_spec(36864,-339968);b=tile_spec(37888,-339968)
         self.assertEqual(window_bounds(a)[2],window_bounds(b)[0])
@@ -154,6 +180,18 @@ class MapUiTests(unittest.IsolatedAsyncioTestCase):
         self.ui._action(lambda:(_ for _ in ()).throw(ValueError('Tile is outside the study area')))
         self.assertIn('outside the study area',self.ui.notice.value)
         self.assertIsNone(self.ui.chat.selected_index)
+
+    async def test_closed_workspace_closes_map_comm_and_null_view_does_not_affect_aoi(self):
+        self.ui.connection.click();await asyncio.sleep(.02)
+        actual_bounds=self.ui.map_data['bounds']
+        self.ui.map.set_state({'east':None,'west':None,'south':90,'north':-90})
+        self.ui._draw_grid()
+        self.assertEqual(self.ui.map_data['bounds'],actual_bounds)
+        self.assertTrue(self.ui.grid.data['features'])
+        self.assertEqual(self.store.get(self.mid)['state'],'completed')
+        self.a.launcher.assert_not_called()
+        self.ui.close()
+        self.assertIsNone(self.ui.map.comm)
 
     async def test_display_failure_preserves_job_and_exposes_server_diagnostic(self):
         from libya_landcover.map_view import MapDisplayError
