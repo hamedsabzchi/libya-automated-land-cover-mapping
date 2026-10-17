@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "libya-landcover-assistant"
-version = "0.7.1"
+version = "0.8.1"
 description = "Installable runner for the unchanged Libya GEE reference model"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -12,6 +12,8 @@ dependencies = ["earthengine-api==1.7.48"]
 
 [project.optional-dependencies]
 chat = ["ipywidgets>=8.1,<9"]
+map = ["ipywidgets>=8.1,<9", "ipyleaflet==0.20.0", "pyproj>=3.6,<4"]
+map-chat = ["ipywidgets>=8.1,<9", "ipyleaflet==0.20.0", "pyproj>=3.6,<4", "transformers==4.57.6", "accelerate>=1.0,<2", "torch>=2.6,<3"]
 local-chat = ["ipywidgets>=8.1,<9", "transformers==4.57.6", "accelerate>=1.0,<2", "torch>=2.6,<3"]
 
 [project.scripts]
