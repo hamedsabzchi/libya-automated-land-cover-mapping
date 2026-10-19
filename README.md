@@ -111,7 +111,7 @@ The normal workflow is in this one notebook; no previous ZIP or code edits are n
 - **Ask the assistant** is optional English help for colours, next steps, status,
   preparing another year, and downloading the tile selected on the map.
 
-Version 0.8.2 keeps the reference GEE, Python modeling engine and adapter unchanged.
+Version 0.8.3 keeps the reference GEE, Python modeling engine and adapter unchanged.
 Display requests use the retained final-map graph over the actual AOI; downloads
 use selected 1024 × 1024 windows on the existing 10 m grid. Display tiles load on
 demand: an accepted map request does not prove every location has rendered.

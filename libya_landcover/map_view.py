@@ -108,9 +108,10 @@ class MapBackend:
         ee,checked,artifact,image,aoi=display_step('restore_saved_map',lambda:self.source(mapping_id))
         # Clip to the full actual AOI, never to the old pilot window. No resampling.
         tiles=display_step('request_land_cover_layer',lambda:image.clip(aoi).getMapId({'min':1,'max':12,'palette':PALETTE}))
+        # Read complete GeoJSON: GeometryCollection has geometries, not coordinates.
         # Simplification affects the outline only; classification clipping is exact.
-        geometries=display_step('read_study_area_boundary',lambda:ee.Dictionary({'outline':aoi.simplify(100).transform('EPSG:4326',10).coordinates(),
-            'outline_type':aoi.simplify(100).type(),
+        outline=display_step('read_study_area_boundary',lambda:aoi.simplify(100).transform('EPSG:4326',10).getInfo())
+        geometries=display_step('read_study_area_boundary',lambda:ee.Dictionary({
             'wgs_bounds':aoi.bounds(10,'EPSG:4326').coordinates(),
             'utm_bounds':aoi.bounds(10,ee.Projection(CRS)).coordinates()}).getInfo())
         ring=geometries['wgs_bounds'][0];xy=geometries['utm_bounds'][0]
@@ -119,8 +120,7 @@ class MapBackend:
         return {'mapping_id':mapping_id,'artifact_id':artifact,'request':checked['request'].to_dict(),
             'url':tiles['tile_fetcher'].url_format,'bounds':[[south,west],[north,east]],
             'area_xy':[min(p[0] for p in xy),min(p[1] for p in xy),max(p[0] for p in xy),max(p[1] for p in xy)],
-            'outline':{'type':'Feature','properties':{},'geometry':{
-                'type':geometries['outline_type'],'coordinates':geometries['outline']}}}
+            'outline':{'type':'Feature','properties':{},'geometry':outline}}
 
     def plan(self,mapping_id,spec):
         ee,checked,artifact,image,aoi=self.source(mapping_id)

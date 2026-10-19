@@ -248,10 +248,10 @@ class MapBackendGraphTests(ApiTestCase):
             with zipfile.ZipFile(archive,'w') as z:
                 for name,data in files.items():z.writestr('run/'+name,data)
             source=import_bundle(store,archive);backend=MapBackend(store)
-            geometry={'outline':[[[13,32],[14,32],[14,33],[13,33],[13,32]]],
-                'outline_type':'Polygon','wgs_bounds':[[[13,32],[14,32],[14,33],[13,33],[13,32]]],
+            polygon={'type':'Polygon','coordinates':[[[13,32],[14,32],[14,33],[13,33],[13,32]]]}
+            geometry={'wgs_bounds':[[[13,32],[14,32],[14,33],[13,33],[13,32]]],
                 'utm_bounds':[[[300000,3500000],[410000,3500000],[410000,3650000],[300000,3650000],[300000,3500000]]]}
-            with patch.object(ee,'Initialize'), patch.object(ee.data,'computeValue',return_value=geometry) as compute, \
+            with patch.object(ee,'Initialize'), patch.object(ee.data,'computeValue',side_effect=[polygon,geometry]) as compute, \
                  patch.object(ee.Image,'getMapId',autospec=True,return_value={'tile_fetcher':SimpleNamespace(url_format='https://example.test/{z}/{x}/{y}')}) as mapid:
                 view=backend.open(source['job_id'])
             self.assertEqual(view['bounds'],[[32,13],[33,14]])
@@ -261,6 +261,23 @@ class MapBackendGraphTests(ApiTestCase):
             self.assertIn(view['request']['aoi_asset'],expression)
             self.assertNotIn('GeometryConstructors.Rectangle',expression)
             self.assertIn('Geometry.bounds',compute.call_args.args[0].serialize())
+            self.assertEqual(view['outline']['geometry'],polygon)
+            outline_graph=compute.call_args_list[0].args[0].serialize()
+            self.assertNotIn('Geometry.coordinates',outline_graph)
+            self.assertIn('Geometry.simplify',outline_graph)
+            self.assertIn('Geometry.transform',outline_graph)
+            collection={'type':'GeometryCollection','geometries':[polygon,{'type':'GeometryCollection','geometries':[{'type':'Point','coordinates':[13.2,32.8]}]}]}
+            with patch.object(ee,'Initialize'), patch.object(ee.data,'computeValue',side_effect=[collection,geometry]), \
+                 patch.object(ee.Image,'getMapId',return_value={'tile_fetcher':SimpleNamespace(url_format='https://example.test/{z}/{x}/{y}')}):
+                collection_view=backend.open(source['job_id'])
+            self.assertEqual(collection_view['outline']['geometry'],collection)
+            self.assertNotIn('coordinates',collection_view['outline']['geometry'])
+            self.assertEqual(collection_view['bounds'],view['bounds'])
+            if HAS_MAP:
+                from ipyleaflet import GeoJSON
+                layer=GeoJSON(data=collection_view['outline'])
+                self.assertEqual(layer.data['geometry'],collection)
+                layer.close()
             from libya_landcover.map_view import MapDisplayError
             with patch.object(ee,'Initialize'), patch.object(ee.Image,'getMapId',side_effect=RuntimeError('Test layer error')):
                 with self.assertRaises(MapDisplayError) as failure:backend.open(source['job_id'])
