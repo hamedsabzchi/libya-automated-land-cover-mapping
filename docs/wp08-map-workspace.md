@@ -65,3 +65,10 @@ Regression tests reproduce the reported exception on an ordinary Map, exercise i
 The live diagnostic identified `Geometry.coordinates: GeometryCollections do not have coordinate lists` in `read_study_area_boundary`. The display code now retrieves the complete simplified, WGS84 GeoJSON geometry with `getInfo()` and passes it unchanged into the outline Feature. A GeometryCollection retains its `geometries` members, including nested collections; Polygon and MultiPolygon keep their coordinates. Extent calculations still use the bounds polygons. The model graph, exact AOI clipping and tile overlap/export operations are unchanged.
 
 Regression checks cover Polygon and nested GeometryCollection responses, ensure the outline query never invokes `Geometry.coordinates`, instantiate the actual ipyleaflet GeoJSON layer, and verify saved graph bytes remain identical. Live rendering with the user's private AOI still needs confirmation. The fix reopens a completed map without submitting another mapping/export job.
+
+
+## Plain map background (0.8.4)
+
+The live Colab screenshot showed OpenStreetMap 403 / Access blocked tiles behind a partially loaded land-cover layer. The workspace now creates its map with an empty layer list, avoiding the implicit OpenStreetMap basemap entirely. It uses Leaflet's plain background; no alternative paid provider, proxy, or key is introduced. The Earth Engine raster attribution, study-area outline, legend, grid, selection and download behavior are retained. Blank areas are not claimed as completed raster coverage.
+
+The UI regression checks that no TileLayer is present before connection and that only the original Earth Engine raster is present after opening and reloading. Grid selection remains tested. This removes the OSM background dependency; it does not change Earth Engine compute quotas or guarantee that all raster tiles have finished loading. The reference GEE, Python model and stored graphs are unchanged.

@@ -146,10 +146,20 @@ class MapUiTests(unittest.IsolatedAsyncioTestCase):
             'outline':{'type':'Feature','properties':{},'geometry':{'type':'Polygon','coordinates':[[[13,32.6],[13.6,32.6],[13.6,33],[13,33],[13,32.6]]]}}}
         self.ui=MapUI(self.a,connect=Mock(),auto_poll=False);self.addCleanup(self.ui.close)
     async def test_open_map_choose_tile_and_review_in_one_ui(self):
+        from ipyleaflet import TileLayer
+        self.assertFalse([layer for layer in self.ui.map.layers if isinstance(layer,TileLayer)])
         self.ui.connection.click()
         await asyncio.sleep(.02)
         self.assertIsNotNone(self.ui.raster)
         self.assertIn('Land-cover classes',self.ui.legend.value)
+        tiles=[layer for layer in self.ui.map.layers if isinstance(layer,TileLayer)]
+        self.assertEqual(tiles,[self.ui.raster])
+        self.assertEqual(tiles[0].url,self.viewer.open.return_value['url'])
+        self.assertIn('Google Earth Engine',tiles[0].attribution)
+        self.ui.open_button.click();await asyncio.sleep(.02)
+        self.assertEqual([layer for layer in self.ui.map.layers if isinstance(layer,TileLayer)],[self.ui.raster])
+        self.assertIn(self.ui.grid,self.ui.map.layers)
+        self.assertIn(self.ui.outline,self.ui.map.layers)
         self.ui._map_click(type='click',coordinates=[32.8,13.2])
         self.assertIsNotNone(self.a.tile);self.assertFalse(self.ui.tile_action.disabled)
         artifact=self.a.describe()['outputs'][0]['artifact_id']

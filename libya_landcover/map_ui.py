@@ -18,7 +18,8 @@ class MapUI(ChatUI):
         self.map_data=None;self._attempted=None;self._load_task=None;self._poll_task=None
         self.poll_seconds=poll_seconds
         super().__init__(assistant,download=download,connect=connect)
-        self.map=NotebookMap(center=(32.7,13.2),zoom=8,scroll_wheel_zoom=True,layout=w.Layout(height='520px',width='100%'))
+        # Use a plain background: no third-party basemap tile requests in Colab.
+        self.map=NotebookMap(layers=(),center=(32.7,13.2),zoom=8,scroll_wheel_zoom=True,layout=w.Layout(height='520px',width='100%'))
         self.map.add(LayersControl(position='topright'));self.map.add(ScaleControl(position='bottomleft'))
         self.grid=GeoJSON(data={'type':'FeatureCollection','features':[]},name='Download grid',
             style={'color':'#235b9d','weight':1,'fillOpacity':0.02},hover_style={'color':'#ffbf00','weight':3,'fillOpacity':0.15})
@@ -37,7 +38,7 @@ class MapUI(ChatUI):
         self.fit.on_click(lambda _:self.map.fit_bounds(self.map_data['bounds']) if self.map_data else None)
         self.tile_action=w.Button(description='Download selected tile',icon='download',button_style='success',layout=w.Layout(width='220px'))
         self.tile_action.on_click(lambda _:self._action(assistant.prepare_pilot))
-        self.map_note=w.HTML('<p>Basemap only. Your land-cover layer will appear here after map preparation.</p>')
+        self.map_note=w.HTML('<p>Plain background. Your land-cover layer will appear here after map preparation.</p>')
         self.selection_note=w.HTML('<p>When the map is ready, click a grid square to choose a download.</p>')
         self.grid_note=w.HTML();self.legend=w.HTML(legend_html())
         self.auto_status=w.HTML('<small>Progress is checked automatically while this notebook is connected.</small>')
@@ -147,7 +148,7 @@ class MapUI(ChatUI):
         self.raster=self.outline=None;self.map_data=None;self.assistant.tile=None;self._attempted=None
         self.grid.data={'type':'FeatureCollection','features':[]};self.highlight.data=self.grid.data
         self.selection_note.value='<p>Click a grid square after opening the map.</p>'
-        self.map_note.value='<p>Basemap only. Waiting for your current land-cover layer.</p>'
+        self.map_note.value='<p>Plain background. Waiting for your current land-cover layer.</p>'
 
     def _open_map(self):
         try:
@@ -169,7 +170,7 @@ class MapUI(ChatUI):
         self.map.remove(self.grid);self.map.remove(self.highlight);self.map.add(self.grid);self.map.add(self.highlight)
         self.map.fit_bounds(data['bounds'])
         self.map_data=data
-        self.map_note.value='<p><b>'+escape(area_name(data['request']))+' · '+str(data['request']['target_year'])+'</b> — full study-area layer requested. Coloured tiles load as you pan and zoom. If they stay blank, use Open / reload map; a basemap alone is not a land-cover result.</p>'
+        self.map_note.value='<p><b>'+escape(area_name(data['request']))+' · '+str(data['request']['target_year'])+'</b> — full study-area layer requested. Coloured tiles load as you pan and zoom. The plain background is intentional; no street basemap is used. Blank areas do not confirm a land-cover result.</p>'
         self._draw_grid()
         return {'message':'The land-cover layer is open. Use the legend below it. Zoom in, click a grid square, then choose Download selected tile.'}
 
