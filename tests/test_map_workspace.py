@@ -168,6 +168,68 @@ class MapUiTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn('Download this selected tile',self.ui.preview.value)
         self.assertFalse(self.store.list(kind='export'))
         self.assertEqual(self.ui.refresh.layout.display,'')
+    async def test_saved_map_to_tile_download_and_reopen_without_new_mapping(self):
+        from test_jobs import Backend
+        from libya_landcover.map_ui import MapUI
+        backend=Backend()
+        self.assertIn('Connect Google',self.ui.next_step.value)
+        self.ui.connection.click();await asyncio.sleep(.02)
+        self.assertIn('Wait for colours',self.ui.next_step.value)
+        self.ui._map_click(type='click',coordinates=[32.8,13.2])
+        chosen=self.a.tile['spec']
+        self.assertIn('Download selected tile',self.ui.next_step.value)
+        artifact=self.a.describe()['outputs'][0]['artifact_id']
+        self.viewer.plan.return_value=(artifact,{'spec':chosen,'selection':'map_grid'})
+        with patch('libya_landcover.exports._backend',return_value=backend):
+            self.ui.tile_action.click()
+            self.assertEqual(self.ui.mapping_review.children,())
+            self.assertEqual(self.ui.download_review.children,(self.ui.review_box,))
+            self.assertIn('below the map',self.ui.next_step.value)
+            self.assertEqual(backend.starts,[])
+            self.ui.confirm.click()
+            identifier=self.a.selected
+            self.assertEqual(self.store.get(identifier)['state'],'submitted')
+            self.assertEqual(len(backend.starts),1)
+            self.assertIn('do not submit it again',self.ui.next_step.value)
+            self.assertEqual(self.ui.download_review.children,())
+            backend.response={'metadata':{'state':'RUNNING'}}
+            self.ui.refresh.click()
+            self.assertEqual(self.store.get(identifier)['state'],'running')
+            backend.response={'done':True,'metadata':{'state':'SUCCEEDED','destinationUris':['https://drive.google.com/drive/folders/test-output']}}
+            self.ui.refresh.click()
+            self.assertEqual(self.store.get(identifier)['state'],'completed')
+            self.assertIn('Tile download',self.ui.progress.value)
+            self.assertIn('test-output',self.ui.progress.value)
+            self.assertIn('Save work for later',self.ui.next_step.value)
+            # Re-reviewing the same tile reuses its operation, never starts another.
+            self.ui.tile_action.click();self.ui.confirm.click()
+            self.assertEqual(self.a.selected,identifier)
+            self.assertEqual(len(backend.starts),1)
+        self.a.launcher.assert_not_called()
+        self.assertIsNotNone(self.ui.raster)
+        self.ui.backup.click()
+        archive=self.store.root/'landcover-saved-work.zip'
+        self.assertTrue(archive.exists())
+        restored=MapAssistant(JobStore(Path(self.tmp.name)/'next-session'),engine_commit='a'*40,viewer=self.viewer,launcher=Mock())
+        result=restored.import_archive(archive)
+        self.assertEqual(result['coverage'],'selected_tile_only')
+        self.assertEqual(result['spec'],chosen)
+        reopened=MapUI(restored,connect=Mock(),auto_poll=False);self.addCleanup(reopened.close)
+        self.assertIn('test-output',reopened.progress.value)
+        self.assertIn('Save work for later',reopened.next_step.value)
+        restored.launcher.assert_not_called()
+        self.assertEqual(len(backend.starts),1)
+
+    async def test_missing_drive_uri_shows_recorded_folder_without_fabricating_link(self):
+        from libya_landcover.pilot import create_pilot
+        result=self.a.describe()
+        job=create_pilot(self.store,self.mid,result['outputs'][0]['artifact_id'],{'spec':tile_spec(36864,-339968)})
+        self.store.update(job,state='completed',drive_folder='Recorded_Folder',destination_uris=[])
+        self.a.selected=job['job_id'];self.ui.sync()
+        self.assertIn('Recorded_Folder',self.ui.progress.value)
+        self.assertIn('Find the folder',self.ui.next_step.value)
+        self.assertNotIn('href=',self.ui.progress.value)
+
     async def test_auto_poll_never_submits_and_stops_on_close(self):
         from libya_landcover.pilot import create_pilot
         result=self.a.describe();spec=tile_spec(36864,-339968)

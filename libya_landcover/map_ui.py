@@ -44,6 +44,9 @@ class MapUI(ChatUI):
         self.auto_status=w.HTML('<small>Progress is checked automatically while this notebook is connected.</small>')
         self.notice=w.HTML()
         self.flow=w.HTML()
+        self.next_step=w.HTML()
+        self.mapping_review=w.VBox()
+        self.download_review=w.VBox()
         self.help_buttons=[]
         for label,message in [('Explain colours','What do the colours mean?'),('What next?','What should I do next?'),('Check status','status')]:
             button=w.Button(description=label)
@@ -53,10 +56,10 @@ class MapUI(ChatUI):
             self.chat_mode,w.HBox(self.help_buttons),self.transcript,self.message,self.send])],selected_index=None)
         self.chat.set_title(0,'Ask the assistant — optional help')
         self.widget=w.VBox([w.HTML('<h2>Libya Land-Cover Assistant</h2><p>View the study-area map. Select the parts you need to download.</p>'),
-            self.flow,self.step,self.connection_box,self.choices,self.review_box,self.activity,self.notice,
+            self.flow,self.next_step,self.step,self.connection_box,self.choices,self.mapping_review,self.activity,self.notice,
             self.progress,self.auto_status,self.refresh,
             w.HBox([self.open_button,self.fit,self.grid_toggle],layout=w.Layout(flex_flow='row wrap')),
-            self.map_note,self.map,self.legend,self.grid_note,self.selection_note,self.tile_action,
+            self.map_note,self.map,self.legend,self.grid_note,self.selection_note,self.tile_action,self.download_review,
             w.HBox([self.backup,self.new],layout=w.Layout(flex_flow='row wrap')),
             self.chat,self.restore,self.support],layout=w.Layout(max_width='1150px',width='100%'))
         self._map_ready=True
@@ -116,8 +119,12 @@ class MapUI(ChatUI):
             if self.live_ready and mapping and mapping['state'] in {'queued','running'}:heading='Preparing your map'
             if self.live_ready and ready and not self.map_data:heading='Open your prepared map'
             self.step.value='<h3>'+heading+'</h3>'
+        self.mapping_review.children=()
+        self.download_review.children=()
         if self.assistant.pending:
             data=self.assistant.store.get(self.assistant.pending)['inputs']
+            review_slot=self.mapping_review if data['action']=='mapping' else self.download_review
+            review_slot.children=(self.review_box,)
             if data['action']=='mapping':
                 self.preview.value='<h3>Ready to create your map?</h3>'+table([('Region',area_name(data['request'])),('Year',data['request']['target_year']),('Result','Study-area map with a legend and selectable download tiles')])
                 self.confirm.description='Create map'
@@ -129,7 +136,7 @@ class MapUI(ChatUI):
             r=self.assistant.describe();state=r['state']
             if r['type']=='mapping':
                 if state=='completed':
-                    msg=('Map preparation finished. Explore the map below.' if self.map_data else
+                    msg=('Map preparation is saved. Map colours load separately as you explore below.' if self.map_data else
                          'Your prepared map is saved. Use Open / reload map below; do not create it again.' if self.live_ready else
                          'Your prepared map is saved. Connect Google to open it; do not create it again.')
                 else:msg='Preparing your map. Keep this notebook connected.'
@@ -139,8 +146,46 @@ class MapUI(ChatUI):
                 if state in {'failed','cancelled','submission_unknown'}:msg='The download needs attention. See Details and support; no automatic retry will start.'
             if r.get('source')=='uploaded_archive_snapshot':msg+=' This is a saved result; connect Google to check it live.'
             # Keep existing completed downloads visible even when a map is selected.
-            self.progress.value='<p>'+escape(msg)+'</p>'+render_reply({'state':state,'observed_at':r.get('observed_at'),'destination_uris':r.get('destination_uris',[])})
+            self.progress.value='<h4>'+('Map preparation' if r['type']=='mapping' else 'Tile download')+'</h4><p>'+escape(msg)+'</p>'+render_reply({'state':state,'observed_at':r.get('observed_at'),'destination_uris':r.get('destination_uris',[])})
+        self._show_next_step(mapping)
         self._draw_grid()
+
+    def _show_next_step(self,mapping):
+        # UI guidance only: reading saved state must never submit or poll work.
+        current=self.assistant.describe() if self.assistant.selected else None
+        draft=self.assistant.store.get(self.assistant.pending)['inputs'] if self.assistant.pending else None
+        if self.last_error:
+            text='Read the error details below. Your saved work is retained; do not create the map again to fix a display problem.'
+        elif draft:
+            text=('Review your map settings below, then click Create map.' if draft['action']=='mapping' else
+                  'Review the selected tile below the map, then click Create tile download. Nothing is sent until you confirm.')
+        elif current and current['type']=='export':
+            state=current['state']
+            if state=='completed':
+                text=('Open the Google Drive link in Tile download and get the .tif file(s). Then click Save work for later.' if current.get('destination_uris') else
+                      'The export is completed. Find the folder shown in Tile download in your Google Drive, then click Save work for later.')
+            elif state in {'failed','cancelled','submission_unknown'}:
+                text='The download needs attention. Open Details and support and save its report before retrying.'
+            else:
+                text=('Wait for your tile download. Progress updates automatically; do not submit it again.' if self.live_ready else
+                      'Connect Google to check this saved download. Do not submit it again.')
+        elif not self.live_ready:
+            text='Click Connect Google and complete the sign-in prompt. If you have a saved-work ZIP, open Continue saved work below first.'
+        elif mapping and mapping['state'] in {'queued','running'}:
+            text='Wait while your map is prepared. Keep this notebook connected. No additional click is needed.'
+        elif mapping and mapping['state'] in {'failed','interrupted'}:
+            text='Map preparation stopped. Open Details and support and save the report.'
+        elif mapping and mapping['state']=='completed' and not self.map_data:
+            text='Click Open / reload map to view your saved map. You do not need to create it again.'
+        elif self.map_data:
+            text=('Click Download selected tile below the map to review your choice.' if self.assistant.tile else
+                  'Wait for colours to appear, then zoom in and click inside the study-area boundary to select one download tile. Use the legend to read the colours.')
+        else:
+            text='Choose a year, then click Review my map.'
+        self.next_step.value='<p role="status" style="padding:12px;border:1px solid #8ba9bf"><b>Next step:</b> '+escape(text)+'</p>'
+        if current and current['type']=='export' and current['state']=='completed' and not current.get('destination_uris'):
+            folder=current.get('drive_folder')
+            self.progress.value+='<p>Google Drive folder: <b>'+escape(folder or 'No folder was recorded. Save the details for support.')+'</b></p>'
 
     def _clear_map(self):
         for layer in (self.raster,self.outline):

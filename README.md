@@ -100,7 +100,7 @@ See [Python engine integration](docs/python-engine-integration.md) for usage, co
 ## Start here: map workspace (WP08)
 
 [Open the map assistant in Colab](https://colab.research.google.com/github/hamedsabzchi/libya-automated-land-cover-mapping/blob/feat/wp08-map-workspace/python/08_wp08_map_workspace.ipynb).
-Click **Start assistant** once. Follow **Connect → Prepare map → Explore & download**.
+Click **Start assistant** once. Follow **Connect → Prepare map → Explore & download** and the visible **Next step** instruction.
 The normal workflow is in this one notebook; no previous ZIP or code edits are needed.
 
 - Connect the Google account authorized for the configured Tripoli project/data.
@@ -111,7 +111,7 @@ The normal workflow is in this one notebook; no previous ZIP or code edits are n
 - **Ask the assistant** is optional English help for colours, next steps, status,
   preparing another year, and downloading the tile selected on the map.
 
-Version 0.8.4 keeps the reference GEE, Python modeling engine and adapter unchanged.
+Version 0.8.5 keeps the reference GEE, Python modeling engine and adapter unchanged.
 Display requests use the retained final-map graph over the actual AOI; downloads
 use selected 1024 × 1024 windows on the existing 10 m grid. Display tiles load on
 demand: an accepted map request does not prove every location has rendered.

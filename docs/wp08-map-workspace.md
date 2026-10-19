@@ -72,3 +72,12 @@ Regression checks cover Polygon and nested GeometryCollection responses, ensure 
 The live Colab screenshot showed OpenStreetMap 403 / Access blocked tiles behind a partially loaded land-cover layer. The workspace now creates its map with an empty layer list, avoiding the implicit OpenStreetMap basemap entirely. It uses Leaflet's plain background; no alternative paid provider, proxy, or key is introduced. The Earth Engine raster attribution, study-area outline, legend, grid, selection and download behavior are retained. Blank areas are not claimed as completed raster coverage.
 
 The UI regression checks that no TileLayer is present before connection and that only the original Earth Engine raster is present after opening and reloading. Grid selection remains tested. This removes the OSM background dependency; it does not change Earth Engine compute quotas or guarantee that all raster tiles have finished loading. The reference GEE, Python model and stored graphs are unchanged.
+
+
+## Guided completion path (0.8.5)
+
+A visible **Next step** message follows connection, map preparation, tile selection, review, export progress and delivery. Map-preparation status and tile-download status have separate headings. The tile confirmation card appears directly below the map/selected tile; the map-preparation review stays next to year selection. Completed exports without a returned URI show the recorded Drive folder instead of inventing a link.
+
+An offline widget integration test follows a saved map through connection, tile selection, explicit confirmation, real export-service state transitions backed by a fake remote server (PENDING → RUNNING → SUCCEEDED), Drive-link display, duplicate-request reuse and ZIP save/reimport in a fresh assistant. It confirms one remote start and no mapping launch. Another test checks the no-URI folder fallback. These are software checks, not a live Google Drive download or a full rendering check. The user's screenshot establishes partial raster display, not complete coverage. The earlier live pilot exports remain the only confirmed TIFF deliveries reported in this chat.
+
+Remaining user acceptance: open the updated notebook with the saved-work ZIP, see colours and the legend, select one tile inside the boundary, confirm its export once, and download its actual TIFF from Drive. Earth Engine restricted mode may slow this; updating the UI does not reset compute quota. No classifier, GEE reference, adapter, contract or export algorithm is changed by this patch.
