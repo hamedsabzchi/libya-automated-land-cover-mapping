@@ -94,3 +94,12 @@ The UI now reads one selected-job summary per refresh for status and next-step g
 The result appears beneath the map toolbar. **Details and support → Save error / details** downloads it when no other interface error is active. Raster requests are bounded to the study-area bounding box, with world wrapping disabled. The original exact image clipping and model are unchanged.
 
 Live check: reopen saved work, centre the map inside the boundary, click **Check map display** once and share the diagnostic. Do not create the map again. Development tests use simulated server responses; no live tile request or full rendering was verified here.
+
+
+## Failed preparation evidence (0.8.7)
+
+A user run failed before map display. Its pasted status did not include the underlying engine error, so the cause of that live run is unconfirmed. This patch fixes missing failure evidence; it does not claim to fix that unknown failure.
+
+Failed/interrupted mapping jobs now show an expanded error panel and a directly visible **Download failure report** button. Empty map controls are hidden for failed preparation. Reports include recorded engine status and a whitelist of runner-manifest failure fields. Future initialization, engine and runner failures retain a bounded sanitized exception chain in the local manifest, without changing reference GEE, the Python model/adapter or retry behavior. Older runs may have only a type/code because discarded exception details cannot be reconstructed.
+
+Tests exercise failure capture and the actual failure-report button without launching another mapping or export. Offline checks do not establish live model execution. For the already-failed 0.8.6 session, first download **Details and support → Save error / details** and share the JSON before updating, deleting the runtime or retrying. The original session contains evidence that another notebook cannot automatically access.

@@ -199,7 +199,7 @@ class Assistant:
         status = mapping_status(self.store, job["job_id"])
         response = {"type": "mapping", "job_id": job["job_id"], "state": job["state"],
             "source": "local_ledger", "observed_at": now(), "error": job.get("error"),
-            "engine_status": status.get("engine_status"),
+            "engine_status": status.get("engine_status"), "runner_failure": status.get("runner_failure"),
             "message": "This is the mapping-engine status. A completed mapping contains saved map graphs; it does not mean the entire area has been delivered as a TIFF."}
         if job["state"] == "completed":
             checked = checked_mapping_bundle(self.store, job)

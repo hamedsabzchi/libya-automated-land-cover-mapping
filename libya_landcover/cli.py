@@ -71,6 +71,18 @@ def parser():
     return root
 
 
+def failure_details(exc):
+    """Retain a bounded, sanitized exception chain for the private run report."""
+    from .map_view import error_detail
+    chain=[]
+    seen=set()
+    while exc is not None and id(exc) not in seen and len(chain)<3:
+        seen.add(id(exc))
+        chain.append({'error_type':type(exc).__name__,'detail':error_detail(exc)})
+        exc=exc.__cause__
+    return chain
+
+
 def execute(args):
     if args.command == "jobs":
         from .job_cli import execute as execute_job
@@ -124,7 +136,7 @@ def execute(args):
         try:
             initialize(args.project)
         except Exception as exc:
-            manifest.update(bundle_state="initialization_failed", error_type=type(exc).__name__)
+            manifest.update(bundle_state="initialization_failed", error_type=type(exc).__name__, failure_details=failure_details(exc))
             write_json(directory / "manifest.json", manifest)
             emit({"bundle": str(directory), "bundle_state": "initialization_failed",
                   "next_action": "Run doctor with the authorized EE project after authentication."})
@@ -141,6 +153,7 @@ def execute(args):
         write_json(directory / "status.json", execution.status.to_dict())
         if execution.result is None:
             manifest["bundle_state"] = "engine_failed"
+            manifest["failure_details"] = failure_details(execution.diagnostic_exception)
             write_json(directory / "manifest.json", manifest)
             return 1
         write_json(directory / "result.json", execution.result.to_dict())
@@ -160,7 +173,7 @@ def execute(args):
         emit({"bundle": str(directory), "bundle_state": manifest["bundle_state"], "evidence_state": manifest["evidence_state"]})
         return 0
     except Exception as exc:
-        manifest.update(bundle_state="runner_failed", error_type=type(exc).__name__)
+        manifest.update(bundle_state="runner_failed", error_type=type(exc).__name__, failure_details=failure_details(exc))
         write_json(directory / "manifest.json", manifest)
         raise
 

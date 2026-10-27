@@ -38,6 +38,9 @@ class MapUI(ChatUI):
         self.check_display=w.Button(description='Check map display',icon='stethoscope',layout=w.Layout(width='190px'))
         self.check_display.on_click(lambda _:self._action(self._check_map_display))
         self.display_status=w.HTML()
+        self.failure_panel=w.HTML()
+        self.failure_report=w.Button(description="Download failure report",icon="download",layout=w.Layout(width="220px"))
+        self.failure_report.on_click(lambda _:self._action(self._save_mapping_failure))
         self.fit=w.Button(description='Zoom to study area')
         self.fit.on_click(lambda _:self.map.fit_bounds(self.map_data['bounds']) if self.map_data else None)
         self.tile_action=w.Button(description='Download selected tile',icon='download',button_style='success',layout=w.Layout(width='220px'))
@@ -61,7 +64,7 @@ class MapUI(ChatUI):
         self.chat.set_title(0,'Ask the assistant — optional help')
         self.widget=w.VBox([w.HTML('<h2>Libya Land-Cover Assistant</h2><p>View the study-area map. Select the parts you need to download.</p>'),
             self.flow,self.next_step,self.step,self.connection_box,self.choices,self.mapping_review,self.activity,self.notice,
-            self.progress,self.auto_status,self.refresh,
+            self.progress,self.failure_panel,self.failure_report,self.auto_status,self.refresh,
             w.HBox([self.open_button,self.fit,self.check_display,self.grid_toggle],layout=w.Layout(flex_flow='row wrap')),
             self.map_note,self.display_status,self.map,self.legend,self.grid_note,self.selection_note,self.tile_action,self.download_review,
             w.HBox([self.backup,self.new],layout=w.Layout(flex_flow='row wrap')),
@@ -106,6 +109,15 @@ class MapUI(ChatUI):
         if not self._map_ready:return
         mapping=current if current and current['type']=='mapping' else self._mapping()
         ready=bool(mapping and mapping['state']=='completed')
+        failed=bool(current and current['type']=='mapping' and current['state'] in {'failed','interrupted'})
+        for widget in (self.map,self.map_note,self.grid_note,self.selection_note,self.grid_toggle,self.open_button,self.fit,self.check_display):
+            self._visible(widget,not failed)
+        self._visible(self.failure_report,failed)
+        self._visible(self.failure_panel,failed)
+        if failed:
+            diagnostic={key:current.get(key) for key in ('job_id','state','error','engine_status','runner_failure')}
+            self.failure_panel.value='<details open><summary>Why map preparation stopped</summary><p>Download the failure report below and send it to the project owner. This does not retry the job.</p><pre style="white-space:pre-wrap">'+escape(error_detail(json.dumps(diagnostic,indent=2)))+'</pre></details>'
+        else:self.failure_panel.value=''
         if self.map_data and (not mapping or mapping['job_id']!=self.map_data['mapping_id']):self._clear_map()
         self.open_button.disabled=not (ready and self.live_ready) or self._busy or self._polling
         self.fit.disabled=self.map_data is None
@@ -125,6 +137,7 @@ class MapUI(ChatUI):
             heading={1:'Connect your Google account',2:'Choose your map',3:'Explore your map and choose a tile'}[stage]
             if self.live_ready and mapping and mapping['state'] in {'queued','running'}:heading='Preparing your map'
             if self.live_ready and ready and not self.map_data:heading='Open your prepared map'
+            if failed:heading='Map preparation failed'
             self.step.value='<h3>'+heading+'</h3>'
         self.mapping_review.children=()
         self.download_review.children=()
@@ -147,7 +160,7 @@ class MapUI(ChatUI):
                          'Your prepared map is saved. Use Open / reload map below; do not create it again.' if self.live_ready else
                          'Your prepared map is saved. Connect Google to open it; do not create it again.')
                 else:msg='Preparing your map. Keep this notebook connected.'
-                if state in {'failed','interrupted'}:msg='Map preparation stopped. Save the details under Details and support.'
+                if state in {'failed','interrupted'}:msg='Map preparation failed before the map could open. The recorded error is shown below.'
             else:
                 msg='Your tile download is ready.' if state=='completed' else 'Your selected download is being prepared. You can continue exploring the map.'
                 if state in {'failed','cancelled','submission_unknown'}:msg='The download needs attention. See Details and support; no automatic retry will start.'
@@ -180,7 +193,7 @@ class MapUI(ChatUI):
         elif mapping and mapping['state'] in {'queued','running'}:
             text='Wait while your map is prepared. Keep this notebook connected. No additional click is needed.'
         elif mapping and mapping['state'] in {'failed','interrupted'}:
-            text='Map preparation stopped. Open Details and support and save the report.'
+            text='Map preparation stopped. Click Download failure report below. Do not restart the job before the cause is checked.'
         elif mapping and mapping['state']=='completed' and not self.map_data:
             text='Click Open / reload map to view your saved map. You do not need to create it again.'
         elif self.map_data:
@@ -279,6 +292,12 @@ class MapUI(ChatUI):
             self._busy=False
             if self._map_ready:
                 self.sync();self._ensure_map()
+
+    def _save_mapping_failure(self):
+        path=self.assistant.store.root/'landcover-mapping-failure.json'
+        self.assistant.save_report(path)
+        if self.download:self.download(str(path))
+        return {'message':'Failure report downloaded. No mapping or export was started.'}
 
     def _save(self,backup):
         if not backup and self.display_check and not self.last_error:

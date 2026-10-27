@@ -262,6 +262,34 @@ class MapUiTests(unittest.IsolatedAsyncioTestCase):
             self.ui.download=Mock();self.ui._save(False)
             self.ui.download.assert_called_once_with(str(saved))
 
+    async def test_failed_preparation_exposes_reason_and_one_click_report_without_rerun(self):
+        self.ui.connection.click();await asyncio.sleep(.02)
+        draft=self.a.prepare_mapping();self.a.confirm(draft['draft_id'])
+        job=self.store.get(self.a.selected)
+        self.store.update(job,state='failed',error={'code':'MAPPING_FAILED','exit_code':3})
+        folder=self.store.folder(job['job_id'])/'bundle';folder.mkdir(parents=True,exist_ok=True)
+        (folder/'manifest.json').write_text(json.dumps({'bundle_state':'initialization_failed','error_type':'EEException',
+            'failure_details':[{'error_type':'EEException','detail':'Project access denied https://example.test/?token=private'}],
+            'extra':'DO_NOT_INCLUDE'}))
+        self.ui.download=Mock();self.ui.sync()
+        self.assertIn('Map preparation failed',self.ui.step.value)
+        self.assertIn('Project access denied',self.ui.failure_panel.value)
+        self.assertEqual(self.ui.map.layout.display,'none')
+        self.assertIn('Download failure report',self.ui.next_step.value)
+        self.assertEqual(self.ui.failure_report.layout.display,'')
+        self.assertNotIn('private',self.ui.failure_panel.value)
+        self.assertNotIn('DO_NOT_INCLUDE',self.ui.failure_panel.value)
+        self.a.launcher.reset_mock();self.viewer.reset_mock()
+        self.ui.failure_report.click()
+        saved=self.store.root/'landcover-mapping-failure.json'
+        self.ui.download.assert_called_once_with(str(saved))
+        report=json.loads(saved.read_text())['result']
+        self.assertEqual(report['job_id'],job['job_id'])
+        self.assertEqual(report['runner_failure']['bundle_state'],'initialization_failed')
+        self.assertNotIn('private',json.dumps(report))
+        self.a.launcher.assert_not_called();self.viewer.open.assert_not_called()
+        self.assertFalse(self.store.list(kind='export'))
+
     async def test_auto_poll_never_submits_and_stops_on_close(self):
         from libya_landcover.pilot import create_pilot
         result=self.a.describe();spec=tile_spec(36864,-339968)
