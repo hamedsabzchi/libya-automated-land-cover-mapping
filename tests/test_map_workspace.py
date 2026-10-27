@@ -230,6 +230,38 @@ class MapUiTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn('Find the folder',self.ui.next_step.value)
         self.assertNotIn('href=',self.ui.progress.value)
 
+    async def test_status_widgets_share_one_snapshot_and_do_not_mix_running_with_completed(self):
+        self.ui.connection.click();await asyncio.sleep(.02)
+        stale={**self.store.get(self.mid),'state':'running'}
+        with patch.object(self.ui,'_mapping',return_value=stale), patch.object(self.a,'describe',wraps=self.a.describe) as describe:
+            self.ui.sync()
+        describe.assert_called_once()
+        self.assertIn('completed',self.ui.progress.value)
+        self.assertNotIn('Wait while your map is prepared',self.ui.next_step.value)
+        self.assertIn('<b>3. Explore & download</b>',self.ui.flow.value)
+        self.assertFalse(self.ui.fit.disabled)
+        self.assertEqual(self.ui.legend.layout.display,'')
+        self.assertEqual(self.ui.raster.bounds,self.viewer.open.return_value['bounds'])
+        self.assertTrue(self.ui.raster.no_wrap)
+
+    async def test_display_check_only_on_click_keeps_map_and_exports_unchanged(self):
+        self.assertTrue(self.ui.check_display.disabled)
+        diagnostic={'state':'timeout','message':'A display tile timed out.', 'scope':'one_display_tile_from_colab'}
+        with patch('libya_landcover.display_diagnostics.check_display_tile',return_value=diagnostic) as check:
+            self.ui.connection.click();await asyncio.sleep(.02)
+            self.ui.sync();check.assert_not_called()
+            self.ui.check_display.click();check.assert_called_once()
+            self.assertIn('timed out',self.ui.display_status.value)
+            self.assertEqual(self.store.get(self.mid)['state'],'completed')
+            self.assertFalse(self.store.list(kind='export'))
+            self.a.launcher.assert_not_called()
+            self.assertIsNotNone(self.ui.raster)
+            self.assertFalse(self.ui.fit.disabled)
+            saved=self.store.root/'landcover-display-check.json'
+            self.assertEqual(json.loads(saved.read_text())['mapping_job_id'],self.mid)
+            self.ui.download=Mock();self.ui._save(False)
+            self.ui.download.assert_called_once_with(str(saved))
+
     async def test_auto_poll_never_submits_and_stops_on_close(self):
         from libya_landcover.pilot import create_pilot
         result=self.a.describe();spec=tile_spec(36864,-339968)

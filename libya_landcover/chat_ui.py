@@ -232,7 +232,7 @@ class ChatUI:
         self.history = self.history[-20:]
         self.transcript.value = ''.join(self.history)
 
-    def sync(self):
+    def sync(self, *, current=None):
         self._draft_id = self.assistant.pending
         self.confirm.disabled = self._draft_id is None
         self.connection.disabled = self.connector is None or self.live_ready
@@ -246,7 +246,8 @@ class ChatUI:
             self.select.value = self.assistant.selected or ''
         finally:
             self.select.observe(self._selection, names='value')
-        current = self.assistant.describe() if self.assistant.selected else None
+        if current is None and self.assistant.selected:
+            current = self.assistant.describe()
         active = current is not None and current['state'] in {'queued', 'running', 'submitting', 'submitted', 'cancelling', 'submission_unknown'}
         self._visible(self.connection_box, not self.live_ready)
         self._visible(self.choices, self.live_ready and current is None and not self._draft_id)

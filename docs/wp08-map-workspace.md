@@ -81,3 +81,16 @@ A visible **Next step** message follows connection, map preparation, tile select
 An offline widget integration test follows a saved map through connection, tile selection, explicit confirmation, real export-service state transitions backed by a fake remote server (PENDING → RUNNING → SUCCEEDED), Drive-link display, duplicate-request reuse and ZIP save/reimport in a fresh assistant. It confirms one remote start and no mapping launch. Another test checks the no-URI folder fallback. These are software checks, not a live Google Drive download or a full rendering check. The user's screenshot establishes partial raster display, not complete coverage. The earlier live pilot exports remain the only confirmed TIFF deliveries reported in this chat.
 
 Remaining user acceptance: open the updated notebook with the saved-work ZIP, see colours and the legend, select one tile inside the boundary, confirm its export once, and download its actual TIFF from Drive. Earth Engine restricted mode may slow this; updating the UI does not reset compute quota. No classifier, GEE reference, adapter, contract or export algorithm is changed by this patch.
+
+
+## Consistent status and blank-layer diagnostics (0.8.6)
+
+The latest screenshot shows an AOI outline with no visible classified pixels and conflicting preparation guidance. It does not establish why the raster is blank; the compute-quota warning alone does not establish a particular tile failure.
+
+The UI now reads one selected-job summary per refresh for status and next-step guidance. Mapping state comes from the same summary, avoiding separate ledger reads that can disagree during worker completion. Mounting a layer immediately synchronizes navigation, zoom controls and legend. A regression test checks a stale running observation alongside a completed summary. This addresses the reproduced software inconsistency, not every possible asynchronous Colab rendering issue.
+
+**Check map display** makes one explicit HTTP request from Colab for the map-centre tile at the current zoom using the already-issued Earth Engine URL. It uses connect/read timeouts, a 64 KiB response-read limit, no retries and no redirects. It does not rebuild the model or start an export. Like viewing a tile, it can consume Earth Engine compute. URLs and headers are not saved; service error messages are sanitized. PNG data is evidence for that one request, not proof of colours, browser rendering or full coverage. Timeout alone does not diagnose quota exhaustion.
+
+The result appears beneath the map toolbar. **Details and support → Save error / details** downloads it when no other interface error is active. Raster requests are bounded to the study-area bounding box, with world wrapping disabled. The original exact image clipping and model are unchanged.
+
+Live check: reopen saved work, centre the map inside the boundary, click **Check map display** once and share the diagnostic. Do not create the map again. Development tests use simulated server responses; no live tile request or full rendering was verified here.

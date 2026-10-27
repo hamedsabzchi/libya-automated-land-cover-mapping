@@ -111,10 +111,12 @@ The normal workflow is in this one notebook; no previous ZIP or code edits are n
 - **Ask the assistant** is optional English help for colours, next steps, status,
   preparing another year, and downloading the tile selected on the map.
 
-Version 0.8.5 keeps the reference GEE, Python modeling engine and adapter unchanged.
+Version 0.8.6 keeps the reference GEE, Python modeling engine and adapter unchanged.
 Display requests use the retained final-map graph over the actual AOI; downloads
 use selected 1024 × 1024 windows on the existing 10 m grid. Display tiles load on
 demand: an accepted map request does not prove every location has rendered.
+If only the outline appears, click **Check map display** once and share its diagnostic;
+do not create the map again.
 This is not a completed whole-region TIFF delivery or an automatic full-grid export.
 
 No paid chat API, external app server or Colab Pro subscription is required by the

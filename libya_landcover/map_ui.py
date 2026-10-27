@@ -15,6 +15,7 @@ class MapUI(ChatUI):
         from ipyleaflet import GeoJSON,LayersControl,ScaleControl
         self._map_ready=False;self._busy=False;self._polling=False
         self.last_error=None
+        self.display_check=None
         self.map_data=None;self._attempted=None;self._load_task=None;self._poll_task=None
         self.poll_seconds=poll_seconds
         super().__init__(assistant,download=download,connect=connect)
@@ -34,6 +35,9 @@ class MapUI(ChatUI):
         self.grid_toggle.observe(lambda change:self._draw_grid(),names='value')
         self.open_button=w.Button(description='Open / reload map',icon='map',button_style='primary',layout=w.Layout(width='190px'))
         self.open_button.on_click(lambda _:self._action(self._open_map))
+        self.check_display=w.Button(description='Check map display',icon='stethoscope',layout=w.Layout(width='190px'))
+        self.check_display.on_click(lambda _:self._action(self._check_map_display))
+        self.display_status=w.HTML()
         self.fit=w.Button(description='Zoom to study area')
         self.fit.on_click(lambda _:self.map.fit_bounds(self.map_data['bounds']) if self.map_data else None)
         self.tile_action=w.Button(description='Download selected tile',icon='download',button_style='success',layout=w.Layout(width='220px'))
@@ -58,8 +62,8 @@ class MapUI(ChatUI):
         self.widget=w.VBox([w.HTML('<h2>Libya Land-Cover Assistant</h2><p>View the study-area map. Select the parts you need to download.</p>'),
             self.flow,self.next_step,self.step,self.connection_box,self.choices,self.mapping_review,self.activity,self.notice,
             self.progress,self.auto_status,self.refresh,
-            w.HBox([self.open_button,self.fit,self.grid_toggle],layout=w.Layout(flex_flow='row wrap')),
-            self.map_note,self.map,self.legend,self.grid_note,self.selection_note,self.tile_action,self.download_review,
+            w.HBox([self.open_button,self.fit,self.check_display,self.grid_toggle],layout=w.Layout(flex_flow='row wrap')),
+            self.map_note,self.display_status,self.map,self.legend,self.grid_note,self.selection_note,self.tile_action,self.download_review,
             w.HBox([self.backup,self.new],layout=w.Layout(flex_flow='row wrap')),
             self.chat,self.restore,self.support],layout=w.Layout(max_width='1150px',width='100%'))
         self._map_ready=True
@@ -96,13 +100,16 @@ class MapUI(ChatUI):
         return self.assistant.store.get(self.assistant.mapping_id())
 
     def sync(self):
-        super().sync()
+        # One selected-job observation for all visible status/next-step text.
+        current=self.assistant.describe() if self.assistant.selected else None
+        super().sync(current=current)
         if not self._map_ready:return
-        mapping=self._mapping()
+        mapping=current if current and current['type']=='mapping' else self._mapping()
         ready=bool(mapping and mapping['state']=='completed')
         if self.map_data and (not mapping or mapping['job_id']!=self.map_data['mapping_id']):self._clear_map()
         self.open_button.disabled=not (ready and self.live_ready) or self._busy or self._polling
         self.fit.disabled=self.map_data is None
+        self.check_display.disabled=self.map_data is None or not self.live_ready or self._busy or self._polling
         self.tile_action.disabled=not (self.map_data and self.assistant.tile and self.live_ready) or self._busy or self._polling
         self._visible(self.legend,self.map_data is not None)
         self._visible(self.tile_action,self.map_data is not None)
@@ -133,7 +140,7 @@ class MapUI(ChatUI):
                 self.preview.value='<h3>Download this selected tile?</h3>'+table([('Tile',f"{w['column']//1024}, {w['row']//1024}"),('Coverage','1024 × 1024 pixels · 10 metres per pixel'),('Destination','Your Google Drive'),('Outside the study area','NoData')])
                 self.confirm.description='Create tile download'
         if self.assistant.selected:
-            r=self.assistant.describe();state=r['state']
+            r=current;state=r['state']
             if r['type']=='mapping':
                 if state=='completed':
                     msg=('Map preparation is saved. Map colours load separately as you explore below.' if self.map_data else
@@ -147,12 +154,11 @@ class MapUI(ChatUI):
             if r.get('source')=='uploaded_archive_snapshot':msg+=' This is a saved result; connect Google to check it live.'
             # Keep existing completed downloads visible even when a map is selected.
             self.progress.value='<h4>'+('Map preparation' if r['type']=='mapping' else 'Tile download')+'</h4><p>'+escape(msg)+'</p>'+render_reply({'state':state,'observed_at':r.get('observed_at'),'destination_uris':r.get('destination_uris',[])})
-        self._show_next_step(mapping)
+        self._show_next_step(mapping,current)
         self._draw_grid()
 
-    def _show_next_step(self,mapping):
+    def _show_next_step(self,mapping,current):
         # UI guidance only: reading saved state must never submit or poll work.
-        current=self.assistant.describe() if self.assistant.selected else None
         draft=self.assistant.store.get(self.assistant.pending)['inputs'] if self.assistant.pending else None
         if self.last_error:
             text='Read the error details below. Your saved work is retained; do not create the map again to fix a display problem.'
@@ -179,7 +185,7 @@ class MapUI(ChatUI):
             text='Click Open / reload map to view your saved map. You do not need to create it again.'
         elif self.map_data:
             text=('Click Download selected tile below the map to review your choice.' if self.assistant.tile else
-                  'Wait for colours to appear, then zoom in and click inside the study-area boundary to select one download tile. Use the legend to read the colours.')
+                  'Wait for colours to appear, then zoom in and click inside the study-area boundary to select one download tile. If only the boundary is visible, click Check map display.')
         else:
             text='Choose a year, then click Review my map.'
         self.next_step.value='<p role="status" style="padding:12px;border:1px solid #8ba9bf"><b>Next step:</b> '+escape(text)+'</p>'
@@ -191,6 +197,7 @@ class MapUI(ChatUI):
         for layer in (self.raster,self.outline):
             if layer is not None:self.map.remove(layer)
         self.raster=self.outline=None;self.map_data=None;self.assistant.tile=None;self._attempted=None
+        self.display_check=None;self.display_status.value=''
         self.grid.data={'type':'FeatureCollection','features':[]};self.highlight.data=self.grid.data
         self.selection_note.value='<p>Click a grid square after opening the map.</p>'
         self.map_note.value='<p>Plain background. Waiting for your current land-cover layer.</p>'
@@ -206,7 +213,7 @@ class MapUI(ChatUI):
     def _mount_map(self):
         from ipyleaflet import TileLayer,GeoJSON
         data=self.assistant.open_map()
-        raster=TileLayer(url=data['url'],name='Land cover '+str(data['request']['target_year']),attribution='Google Earth Engine · The AlphaEarth Foundations Satellite Embedding dataset is produced by Google and Google DeepMind.',max_zoom=22)
+        raster=TileLayer(url=data['url'],name='Land cover '+str(data['request']['target_year']),attribution='Google Earth Engine · The AlphaEarth Foundations Satellite Embedding dataset is produced by Google and Google DeepMind.',max_zoom=22,bounds=data['bounds'],no_wrap=True)
         outline=GeoJSON(data=data['outline'],name='Study-area boundary',style={'color':'#222','weight':2,'fillOpacity':0})
         self._clear_map();self.assistant.map_id=data['mapping_id'];self._attempted=data['mapping_id']
         self.raster=raster;self.outline=outline
@@ -216,8 +223,20 @@ class MapUI(ChatUI):
         self.map.fit_bounds(data['bounds'])
         self.map_data=data
         self.map_note.value='<p><b>'+escape(area_name(data['request']))+' · '+str(data['request']['target_year'])+'</b> — full study-area layer requested. Coloured tiles load as you pan and zoom. The plain background is intentional; no street basemap is used. Blank areas do not confirm a land-cover result.</p>'
-        self._draw_grid()
-        return {'message':'The land-cover layer is open. Use the legend below it. Zoom in, click a grid square, then choose Download selected tile.'}
+        self.sync()
+        return {'message':'The land-cover layer was requested. Use the legend below it. Zoom in, click a grid square, then choose Download selected tile.'}
+
+    def _check_map_display(self):
+        from .display_diagnostics import check_display_tile
+        if not self.map_data:raise ValueError('Open your prepared map first.')
+        self.assistant.before_live()
+        check=check_display_tile(self.map_data['url'],self.map.center,self.map.zoom)
+        check.update(observed_at=now(),mapping_job_id=self.map_data['mapping_id'])
+        self.display_check=check
+        self.display_status.value='<details open><summary>Map display check — share this for support</summary><p>'+escape(check['message'])+'</p><pre style="white-space:pre-wrap">'+escape(json.dumps(check,indent=2))+'</pre></details>'
+        from .bundle import write_json
+        write_json(self.assistant.store.root/'landcover-display-check.json',check)
+        return {'type':'display_check','message':check['message'],'diagnostic':check}
 
     def _draw_grid(self):
         if not self._map_ready or not self.map_data:return
@@ -262,6 +281,10 @@ class MapUI(ChatUI):
                 self.sync();self._ensure_map()
 
     def _save(self,backup):
+        if not backup and self.display_check and not self.last_error:
+            path=self.assistant.store.root/'landcover-display-check.json'
+            if self.download:self.download(str(path))
+            return {'message':'Map display check saved. No map or export was started.'}
         if backup or not self.last_error:return super()._save(backup)
         from .bundle import write_json
         path=self.assistant.store.root/'landcover-display-error.json'
