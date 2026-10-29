@@ -46,10 +46,11 @@ def render_reply(reply):
     if reply.get('type') == 'jobs':
         rows += [(j['kind'] + ' · ' + j['state'],j['job_id']) for j in reply.get('jobs',[])]
     links = []
-    for uri in reply.get('destination_uris',[]):
+    from .downloads import result_links
+    for uri in result_links(reply.get('destination_uris',[])):
         if isinstance(uri,str):
             parsed = urlparse(uri)
-            if parsed.scheme == 'https' and parsed.netloc == 'drive.google.com':
+            if parsed.scheme == 'https' and parsed.netloc in {'drive.google.com','docs.google.com'}:
                 links.append('<p><a target="_blank" rel="noopener noreferrer" href="' + escape(uri,quote=True) + '">Open result in Google Drive</a></p>')
     details = {k:v for k,v in reply.items() if k != 'message'}
     metadata = ('<details><summary>Technical details</summary><pre style="white-space:pre-wrap;overflow-wrap:anywhere">' +
@@ -102,13 +103,13 @@ def simple_reply(reply):
 
 
 class ChatUI:
-    def __init__(self, assistant, *, download=None, connect=None):
+    def __init__(self, assistant, *, download=None, connect=None, preserve_draft=False):
         import ipywidgets as w
         self.assistant, self.download, self.connector = assistant, download, connect
         self.live_ready = connect is None
         if connect is not None:
             assistant.before_live = self._require_connection
-        assistant.discard()
+        if not preserve_draft:assistant.discard()
         self._draft_id = None
         self.history = []
         self._closed = False

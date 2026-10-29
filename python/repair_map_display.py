@@ -22,6 +22,8 @@ def repair_current_display(previous):
     # Replace display classes only. Keep the engine, assistant object, credentials,
     # local chat model, selected tile, pending review and job ledger in memory.
     importlib.invalidate_caches()
+    import libya_landcover.chat_ui as chat_ui
+    importlib.reload(chat_ui)
     import libya_landcover.notebook_map as notebook_map
     import libya_landcover.map_ui as map_ui
     importlib.reload(notebook_map)

@@ -50,7 +50,7 @@ class MapAssistant(Assistant):
         self.discard()
         if job_id:self._choose(job_id)
         if not self.tile or self.tile['mapping_id']!=self.mapping_id():
-            return {'type':'help','message':'Click a grid tile on the map first, then choose Download selected tile.'}
+            return {'type':'help','message':'Select a blue square, then click Create tile download once.'}
         self.before_live()
         artifact,plan=self.viewer.plan(self.tile['mapping_id'],self.tile['spec'])
         return self._draft({'action':'pilot','mapping_job_id':self.tile['mapping_id'],'artifact_id':artifact,'plan':plan})
@@ -74,13 +74,13 @@ class MapAssistant(Assistant):
         if clean in {'what next','what should i do next','help','hello','hi'}:
             self.discard()
             if not self.selected:
-                message='Connect Google, choose a year and click Review my map. Check the choices and click Create map. You do not need to upload a file.'
+                message='Connect Google, choose a year and click Create map once. You do not need to upload a file.'
             else:
                 current=self.describe()
                 if current['type']=='export':
                     message=('Your download is ready. Use the Google Drive link above to get the TIFF. You can select another grid tile for another download.' if current['state']=='completed' else 'Follow the download status above. It updates automatically while connected. Do not submit the same download again.')
                 elif current['state']=='completed':
-                    message='Connect Google if needed, then explore the map. Click a blue grid square and choose Download selected tile. Review it and click Create tile download.'
+                    message='Connect Google if needed, then explore the map. Select a blue square and click Create tile download once. Follow Downloads for automatic progress and the Drive link.'
                 elif current['state'] in {'queued','running'}:
                     message='Your map is being prepared. Keep this notebook connected. Progress updates automatically; do not start the same map again.'
                 else:message='The map needs attention. Open Details and support and save the error details before starting another map.'

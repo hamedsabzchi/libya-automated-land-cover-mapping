@@ -227,12 +227,25 @@ class JobTests(unittest.TestCase):
         self.assertEqual(done['destination_uris'],['https://drive.google.com/drive/folders/example'])
         self.assertEqual(self.store.get(job['inputs']['mapping_job_id'])['state'],'completed')
 
+    def test_late_destination_read_keeps_completed_state_and_never_resubmits(self):
+        job=self.export();client=Backend();submit_export(self.store,job['job_id'],backend=client)
+        client.response={'done':True,'metadata':{'state':'SUCCEEDED'}}
+        done=poll_export(self.store,job['job_id'],backend=client)
+        self.assertEqual(done['state'],'completed');self.assertEqual(done['destination_uris'],[])
+        client.response={'metadata':{'state':'RUNNING'}}
+        self.assertEqual(poll_export(self.store,job['job_id'],backend=client,refresh_destination=True),done)
+        client.response={'done':True,'metadata':{'state':'SUCCEEDED','destinationUris':['https://drive.google.com/drive/folders/late']}}
+        final=poll_export(self.store,job['job_id'],backend=client,refresh_destination=True)
+        self.assertEqual(final['destination_uris'],['https://drive.google.com/drive/folders/late'])
+        self.assertEqual(len(client.starts),1)
+
     def test_failure_never_downgrades_completed_mapping_or_claims_download(self):
         job=self.export();client=Backend();submit_export(self.store,job['job_id'],backend=client)
-        client.response={'done':True,'metadata':{'state':'FAILED'},'error':{'code':13,'message':'private'}}
+        client.response={'done':True,'metadata':{'state':'FAILED'},'error':{'code':13,'message':'User memory limit exceeded https://example.test/?access_token=private'}}
         failed=poll_export(self.store,job['job_id'],backend=client)
         self.assertEqual(failed['state'],'failed');self.assertEqual(failed['destination_uris'],[])
         self.assertNotIn('private',json.dumps(failed))
+        self.assertIn('User memory limit exceeded',failed['error']['message'])
         self.assertEqual(self.store.get(job['inputs']['mapping_job_id'])['state'],'completed')
 
     def test_cancel_requires_remote_confirmation_and_handles_completion_race(self):

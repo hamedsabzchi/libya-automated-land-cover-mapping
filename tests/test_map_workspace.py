@@ -148,6 +148,12 @@ class MapServiceTests(unittest.TestCase):
 class MapUiTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         from libya_landcover.map_ui import MapUI
+        from test_jobs import Backend
+        self.network=patch('socket.socket.connect',side_effect=AssertionError('Offline test: network access prohibited'))
+        self.network.start();self.addCleanup(self.network.stop)
+        self.remote=Backend();self.remote.response={'metadata':{'state':'RUNNING'}}
+        self.backend_patch=patch('libya_landcover.exports._backend',return_value=self.remote)
+        self.backend_patch.start();self.addCleanup(self.backend_patch.stop)
         self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup)
         self.store=JobStore(Path(self.tmp.name)/'store');self.viewer=Mock()
         self.a=MapAssistant(self.store,engine_commit='a'*40,viewer=self.viewer,launcher=Mock())
@@ -179,7 +185,7 @@ class MapUiTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(self.a.tile);self.assertFalse(self.ui.tile_action.disabled)
         artifact=self.a.describe()['outputs'][0]['artifact_id']
         self.viewer.plan.return_value=(artifact,{'spec':self.a.tile['spec']})
-        self.ui.tile_action.click()
+        self.ui._action(self.a.prepare_pilot)
         self.assertIn('Download this selected tile',self.ui.preview.value)
         self.assertFalse(self.store.list(kind='export'))
         self.assertEqual(self.ui.refresh.layout.display,'')
@@ -192,11 +198,11 @@ class MapUiTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn('Wait for colours',self.ui.next_step.value)
         self.ui._map_click(type='click',coordinates=[32.8,13.2])
         chosen=self.a.tile['spec']
-        self.assertIn('Download selected tile',self.ui.next_step.value)
+        self.assertIn('Create tile download',self.ui.next_step.value)
         artifact=self.a.describe()['outputs'][0]['artifact_id']
         self.viewer.plan.return_value=(artifact,{'spec':chosen,'selection':'map_grid'})
         with patch('libya_landcover.exports._backend',return_value=backend):
-            self.ui.tile_action.click()
+            self.ui._action(self.a.prepare_pilot)
             self.assertEqual(self.ui.mapping_review.children,())
             self.assertEqual(self.ui.download_review.children,(self.ui.review_box,))
             self.assertIn('above the map',self.ui.next_step.value)
@@ -217,16 +223,17 @@ class MapUiTests(unittest.IsolatedAsyncioTestCase):
             self.assertIn('test-output',self.ui.progress.value)
             self.assertIn('Save work for later',self.ui.next_step.value)
             # Re-reviewing the same tile reuses its operation, never starts another.
-            self.ui.tile_action.click();self.ui.confirm.click()
+            self.ui.tile_action.click()
             self.assertEqual(self.a.selected,identifier)
             self.assertEqual(len(backend.starts),1)
         self.a.launcher.assert_not_called()
         self.assertIsNotNone(self.ui.raster)
         self.ui.backup.click()
-        archive=self.store.root/'landcover-saved-work.zip'
+        archive=self.store.root/'landcover-workspace.zip'
         self.assertTrue(archive.exists())
         restored=MapAssistant(JobStore(Path(self.tmp.name)/'next-session'),engine_commit='a'*40,viewer=self.viewer,launcher=Mock())
-        result=restored.import_archive(archive)
+        from libya_landcover.workspace import restore_workspace
+        restore_workspace(restored,archive);result=restored.describe()
         self.assertEqual(result['coverage'],'selected_tile_only')
         self.assertEqual(result['spec'],chosen)
         reopened=MapUI(restored,connect=Mock(),auto_poll=False);self.addCleanup(reopened.close)
@@ -283,7 +290,7 @@ class MapUiTests(unittest.IsolatedAsyncioTestCase):
         selected=self.a.tile.copy()
         artifact=self.a.describe()['outputs'][0]['artifact_id']
         self.viewer.plan.return_value=(artifact,{'spec':selected['spec']})
-        self.ui.tile_action.click();pending=self.a.pending
+        self.ui._action(self.a.prepare_pilot);pending=self.a.pending
         old_map=self.ui.map
         # Simulate a stale display with no layer views.
         old_map.layers=()
@@ -305,6 +312,8 @@ class MapUiTests(unittest.IsolatedAsyncioTestCase):
         from libya_landcover.map_ui import restore_live_workspace
         self.ui.connection.click();await asyncio.sleep(.02)
         self.ui._map_click(type='click',coordinates=[32.8,13.2])
+        self.viewer.plan.return_value=(self.a.describe()['outputs'][0]['artifact_id'],{'spec':self.a.tile['spec']})
+        self.ui._action(self.a.prepare_pilot);pending=self.a.pending
         old_map=self.ui.map;tile=self.a.tile.copy();selected=self.a.selected
         self.viewer.reset_mock()
         with patch('IPython.display.display'):
@@ -313,17 +322,119 @@ class MapUiTests(unittest.IsolatedAsyncioTestCase):
         self.assertIs(repaired.assistant,self.a)
         self.assertIs(repaired.assistant.store,self.store)
         self.assertEqual(self.a.selected,selected);self.assertEqual(self.a.tile,tile)
+        self.assertEqual(self.a.pending,pending)
         self.assertTrue(repaired.live_ready);self.assertFalse(repaired.tile_action.disabled)
         self.assertIsNone(old_map.comm);self.assertTrue(self.ui._closed)
         self.viewer.open.assert_not_called();self.a.launcher.assert_not_called()
         self.assertFalse(self.store.list(kind='export'))
 
-    async def test_missing_cached_view_does_not_retire_current_workspace(self):
+    async def test_one_click_download_is_not_lost_during_poll_and_link_stays_visible(self):
+        self.ui.connection.click();await asyncio.sleep(.02)
+        self.ui._map_click(type='click',coordinates=[32.8,13.2])
+        self.viewer.plan.return_value=(self.a.describe()['outputs'][0]['artifact_id'],{'spec':self.a.tile['spec']})
+        self.ui._polling=True
+        self.ui.tile_action.click()
+        self.ui._polling=False
+        identifier=self.a.selected
+        self.assertEqual(self.store.get(identifier)['state'],'submitted')
+        self.assertEqual(len(self.remote.starts),1)
+        self.assertIn('Waiting for Earth Engine',self.ui.downloads.value)
+        self.ui.tile_action.click();self.assertEqual(len(self.remote.starts),1)
+        self.a.selected=self.mid;self.ui.sync()
+        self.remote.response={'done':True,'metadata':{'state':'SUCCEEDED','destinationUris':['https://drive.google.com/drive/folders/live-result']}}
+        await self.ui._poll_once();self.ui.sync()
+        self.assertIn('live-result',self.ui.downloads.value)
+        self.assertEqual(self.a.selected,self.mid)
+        self.a.launcher.assert_not_called()
+
+    async def test_fresh_user_creates_map_once_without_second_review_button(self):
+        from libya_landcover.map_ui import MapUI
+        a=MapAssistant(JobStore(Path(self.tmp.name)/'new-user'),engine_commit='a'*40,viewer=self.viewer,launcher=Mock())
+        ui=MapUI(a,connect=Mock(),auto_poll=False);self.addCleanup(ui.close)
+        ui.connection.click()
+        self.assertEqual(ui.prepare.description,'Create map')
+        ui.prepare.click();identifier=a.selected
+        self.assertEqual(a.store.get(identifier)['state'],'queued')
+        self.assertIsNone(a.pending);a.launcher.assert_called_once()
+        ui.prepare.click();a.launcher.assert_called_once()
+        self.assertEqual(a.selected,identifier)
+
+    async def test_failed_export_preparation_shows_reason_without_claiming_a_download(self):
+        self.ui.connection.click();await asyncio.sleep(.02)
+        self.ui._map_click(type='click',coordinates=[32.8,13.2])
+        self.viewer.plan.return_value=(self.a.describe()['outputs'][0]['artifact_id'],{'spec':self.a.tile['spec']})
+        with patch.object(self.remote,'prepare',side_effect=RuntimeError('Export preparation unavailable')):
+            self.ui.tile_action.click()
+        self.assertIn('Export preparation unavailable',self.ui.downloads.value)
+        self.assertNotIn('Open download in Google Drive',self.ui.downloads.value)
+        self.assertFalse(self.remote.starts)
+
+    async def test_poll_recovers_lost_submission_without_starting_again(self):
+        from libya_landcover.exports import description
+        self.ui.connection.click();await asyncio.sleep(.02)
+        self.ui._map_click(type='click',coordinates=[32.8,13.2])
+        self.viewer.plan.return_value=(self.a.describe()['outputs'][0]['artifact_id'],{'spec':self.a.tile['spec']})
+        self.remote.fail_start=True;self.ui.tile_action.click()
+        job=self.store.get(self.a.selected)
+        self.assertEqual(job['state'],'submission_unknown');self.assertIsNone(job['operation_name'])
+        self.remote.operations=[{'name':'projects/example-project/operations/reconciled','metadata':{'state':'RUNNING','description':description(job)}}]
+        await self.ui._poll_once();self.ui.sync()
+        self.assertEqual(self.store.get(job['job_id'])['state'],'running')
+        self.assertEqual(len(self.remote.starts),1)
+
+    async def test_imported_running_export_checks_automatically_without_refresh_click(self):
+        from libya_landcover.workspace import save_workspace,restore_workspace
+        from libya_landcover.exports import description
+        from libya_landcover.map_ui import MapUI
+        self.ui.connection.click();await asyncio.sleep(.02)
+        self.ui._map_click(type='click',coordinates=[32.8,13.2])
+        self.viewer.plan.return_value=(self.a.describe()['outputs'][0]['artifact_id'],{'spec':self.a.tile['spec']})
+        self.ui.tile_action.click();job=self.store.get(self.a.selected)
+        archive=save_workspace(self.a,self.store.root/'all.zip')
+        restored=MapAssistant(JobStore(Path(self.tmp.name)/'restored-all'),engine_commit='a'*40,viewer=self.viewer,launcher=Mock())
+        restore_workspace(restored,archive)
+        ui=MapUI(restored,connect=Mock(),auto_poll=False);self.addCleanup(ui.close);ui.live_ready=True
+        self.remote.response={'done':True,'metadata':{'state':'SUCCEEDED','description':description(job),'destinationUris':['https://drive.google.com/drive/folders/recovered-result']}}
+        await ui._poll_once();ui.sync()
+        self.assertIn('recovered-result',ui.downloads.value)
+        self.assertEqual(restored.describe()['state'],'completed')
+        self.assertEqual(len(self.remote.starts),1)
+
+    async def test_upgrade_without_open_view_retains_work_and_connection_state(self):
         from libya_landcover.map_ui import restore_live_workspace
-        with self.assertRaisesRegex(ValueError,'no open map'):
-            restore_live_workspace(self.ui)
-        self.assertFalse(self.ui._closed)
-        self.assertIsNotNone(self.ui.map.comm)
+        with patch('IPython.display.display'):
+            repaired=restore_live_workspace(self.ui)
+        self.addCleanup(repaired.close)
+        self.assertIs(repaired.assistant,self.a)
+        self.assertFalse(repaired.live_ready)
+        self.assertIsNotNone(repaired.map.comm)
+        self.assertTrue(self.ui._closed)
+
+    async def test_unified_updater_preserves_pending_review_history_and_all_job_ids(self):
+        import runpy
+        self.ui.connection.click();await asyncio.sleep(.02)
+        self.ui.year.value=2023
+        self.ui.message.value='Keep this unsent message'
+        self.ui.map.center=(32.8,13.2);self.ui.map.zoom=10
+        self.ui._map_click(type='click',coordinates=[32.8,13.2])
+        self.viewer.plan.return_value=(self.a.describe()['outputs'][0]['artifact_id'],{'spec':self.a.tile['spec']})
+        self.ui._action(self.a.prepare_pilot);pending=self.a.pending
+        identifiers=[j['job_id'] for j in self.store.list()];history=list(self.ui.history)
+        self.ui.download=Mock()
+        update=runpy.run_path(str(ROOT/'python/update_workspace.py'))['update_current_workspace']
+        with patch('subprocess.run',return_value=Mock(returncode=0)),patch('IPython.display.display'):
+            repaired=await update(self.ui)
+        self.addCleanup(repaired.close)
+        self.assertEqual(self.a.pending,pending);self.assertEqual(repaired.history,history)
+        self.assertEqual([j['job_id'] for j in self.store.list()],identifiers)
+        self.assertTrue(repaired.live_ready);self.assertIs(repaired.assistant,self.a)
+        self.assertEqual(repaired.year.value,2023)
+        self.assertEqual(repaired.message.value,'Keep this unsent message')
+        self.assertEqual(repaired.map.center,[32.8,13.2]);self.assertEqual(repaired.map.zoom,10)
+        backup=self.store.root/'landcover-before-update.zip'
+        self.ui.download.assert_called_once_with(str(backup))
+        with zipfile.ZipFile(backup) as archive:self.assertIn('workspace.json',archive.namelist())
+        self.assertFalse(self.remote.starts);self.a.launcher.assert_not_called()
 
     async def test_repair_cell_updates_display_only_in_existing_runtime(self):
         import runpy

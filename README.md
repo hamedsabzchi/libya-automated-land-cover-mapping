@@ -104,26 +104,26 @@ Click **Start assistant** once. Follow **Connect → Prepare map → Explore & d
 The normal workflow is in this one notebook; no previous ZIP or code edits are needed.
 
 - Connect the Google account authorized for the configured Tripoli project/data.
-- Choose a year, review it, and click **Create map**. Progress updates automatically.
+- Choose a year and click **Create map** once. Progress updates automatically.
 - Explore the full study-area land-cover layer and its 12-class legend.
-- Click a grid square, choose **Download selected tile**, review it, and click
-  **Create tile download**. Open the resulting Google Drive link for the TIFF.
+- Select a blue square and click **Create tile download** once. The **Downloads**
+  section keeps its status and Drive link visible automatically, even when you select another tile.
 - **Ask the assistant** is optional English help for colours, next steps, status,
   preparing another year, and downloading the tile selected on the map.
 
-Version 0.8.7 keeps the reference GEE, Python modeling engine and adapter unchanged.
+Version 0.9.0 keeps the reference GEE, Python modeling engine and adapter unchanged.
 Display requests use the retained final-map graph over the actual AOI; downloads
 use selected 1024 × 1024 windows on the existing 10 m grid. Display tiles load on
 demand: an accepted map request does not prove every location has rendered.
-If only the outline appears, click **Check map display** once and share its diagnostic;
+If the map is empty, expand **Map tools and diagnostics** and use **Restore map display**;
 do not create the map again.
 This is not a completed whole-region TIFF delivery or an automatic full-grid export.
 
 No paid chat API, external app server or Colab Pro subscription is required by the
 notebook. Free Colab resources are limited; Earth Engine access and project quotas
 still apply. The local chat model can misunderstand requests; buttons remain
-available if chat cannot load. **Save work for later** downloads a recovery ZIP,
-not the TIFF. See [WP08 usage, boundaries and acceptance](docs/wp08-map-workspace.md).
+available if chat cannot load. **Save work for later** downloads all completed maps,
+export records and support evidence in one recovery ZIP. TIFFs remain in Drive. See [WP08 usage, boundaries and acceptance](docs/wp08-map-workspace.md).
 
 The [WP07 notebook](python/07_wp07_free_english_assistant.ipynb) and
 [WP07 notes](docs/wp07-free-colab-chat.md) remain available for the earlier sample-only interface.

@@ -2,15 +2,17 @@
 import asyncio
 from html import escape
 import json
+import time
 from .chat_ui import ChatUI, render_reply, table, area_name
 from .map_view import feature, tile_at, tile_spec, visible_grid, legend_html, MapDisplayError, error_detail
 from .exports import poll_export
 from .job_store import now
 from .notebook_map import NotebookMap, valid_bounds, view_for_bounds
+from .downloads import ACTIVE, export_rows, download_cards
 
 
 class MapUI(ChatUI):
-    def __init__(self,assistant,*,download=None,connect=None,auto_poll=True,poll_seconds=20):
+    def __init__(self,assistant,*,download=None,connect=None,auto_poll=True,poll_seconds=20,preserve_draft=False):
         import ipywidgets as w
         from ipyleaflet import GeoJSON,LayersControl,ScaleControl
         self._map_ready=False;self._busy=False;self._polling=False
@@ -18,7 +20,12 @@ class MapUI(ChatUI):
         self.display_check=None
         self.map_data=None;self._attempted=None;self._load_task=None;self._poll_task=None
         self.poll_seconds=poll_seconds
-        super().__init__(assistant,download=download,connect=connect)
+        self._poll_wake=asyncio.Event();self._poll_checks={};self._link_checks={};self._poll_index=0
+        self._backup_signature=None
+        super().__init__(assistant,download=download,connect=connect,preserve_draft=preserve_draft)
+        self.prepare=w.Button(description='Create map',button_style='primary',layout=w.Layout(width='190px'))
+        self.prepare.on_click(lambda _:self._action(self._create_map))
+        self.choices.children=(*self.choices.children[:-1],self.prepare)
         # Use a plain background: no third-party basemap tile requests in Colab.
         self.map=NotebookMap(layers=(),center=(32.7,13.2),zoom=8,scroll_wheel_zoom=True,layout=w.Layout(height='520px',width='100%'))
         self.map.add(LayersControl(position='topright'));self.map.add(ScaleControl(position='bottomleft'))
@@ -46,8 +53,9 @@ class MapUI(ChatUI):
         self.failure_report.on_click(lambda _:self._action(self._save_mapping_failure))
         self.fit=w.Button(description='Zoom to study area')
         self.fit.on_click(lambda _:self._fit_map())
-        self.tile_action=w.Button(description='Download selected tile',icon='download',button_style='success',layout=w.Layout(width='220px'))
-        self.tile_action.on_click(lambda _:self._action(assistant.prepare_pilot))
+        self.tile_action=w.Button(description='Create tile download',icon='download',button_style='success',layout=w.Layout(width='220px'))
+        self.tile_action.on_click(lambda _:self._action(self._download_tile))
+        self.downloads=w.HTML()
         self.map_note=w.HTML('<p>Plain background. Your land-cover layer will appear here after map preparation.</p>')
         self.selection_note=w.HTML('<p>When the map is ready, click a grid square to choose a download.</p>')
         self.grid_note=w.HTML();self.legend=w.HTML(legend_html())
@@ -57,6 +65,9 @@ class MapUI(ChatUI):
         self.next_step=w.HTML()
         self.mapping_review=w.VBox()
         self.download_review=w.VBox()
+        self.map_tools=w.Accordion(children=[w.VBox([w.HBox([self.open_button,self.restore_display,self.fit],layout=w.Layout(flex_flow='row wrap')),
+            w.HBox([self.check_display,self.refresh],layout=w.Layout(flex_flow='row wrap')),self.display_status])],selected_index=None)
+        self.map_tools.set_title(0,'Map tools and diagnostics — optional')
         self.help_buttons=[]
         for label,message in [('Explain colours','What do the colours mean?'),('What next?','What should I do next?'),('Check status','status')]:
             button=w.Button(description=label)
@@ -67,10 +78,9 @@ class MapUI(ChatUI):
         self.chat.set_title(0,'Ask the assistant — optional help')
         self.widget=w.VBox([w.HTML('<h2>Libya Land-Cover Assistant</h2><p>View the study-area map. Select the parts you need to download.</p>'),
             self.flow,self.next_step,self.step,self.connection_box,self.choices,self.mapping_review,self.activity,self.notice,
-            self.progress,self.failure_panel,self.failure_report,self.auto_status,self.refresh,
-            w.HBox([self.open_button,self.restore_display,self.fit,self.check_display,self.grid_toggle],layout=w.Layout(flex_flow='row wrap')),
+            self.progress,self.failure_panel,self.failure_report,self.auto_status,self.downloads,
             self.selection_note,self.tile_action,self.download_review,
-            self.map_note,self.display_status,self.map_slot,self.legend,self.grid_note,
+            self.map_note,self.grid_toggle,self.map_slot,self.legend,self.grid_note,self.map_tools,
             w.HBox([self.backup,self.new],layout=w.Layout(flex_flow='row wrap')),
             self.chat,self.restore,self.support],layout=w.Layout(max_width='1150px',width='100%'))
         self._map_ready=True
@@ -125,9 +135,9 @@ class MapUI(ChatUI):
         if self.map_data and (not mapping or mapping['job_id']!=self.map_data['mapping_id']):self._clear_map()
         self.open_button.disabled=not (ready and self.live_ready) or self._busy or self._polling
         self.fit.disabled=self.map_data is None
-        self.check_display.disabled=self.map_data is None or not self.live_ready or self._busy or self._polling
-        self.restore_display.disabled=self.map_data is None or self._busy or self._polling
-        self.tile_action.disabled=not (self.map_data and self.assistant.tile and self.live_ready) or self._busy or self._polling
+        self.check_display.disabled=self.map_data is None or not self.live_ready or self._busy
+        self.restore_display.disabled=self.map_data is None or self._busy
+        self.tile_action.disabled=not (self.map_data and self.assistant.tile and self.live_ready) or self._busy
         self._visible(self.legend,self.map_data is not None)
         self._visible(self.tile_action,not failed)
         self._visible(self.refresh,bool(self.assistant.selected)) # Never hide progress behind another preview.
@@ -173,6 +183,10 @@ class MapUI(ChatUI):
             # Keep existing completed downloads visible even when a map is selected.
             self.progress.value='<h4>'+('Map preparation' if r['type']=='mapping' else 'Tile download')+'</h4><p>'+escape(msg)+'</p>'+render_reply({'state':state,'observed_at':r.get('observed_at'),'destination_uris':r.get('destination_uris',[])})
         self._show_next_step(mapping,current)
+        self.downloads.value=download_cards(export_rows(self.assistant.store),self._poll_checks)
+        # A chat-created or pre-update review remains a valid single confirmation.
+        self._visible(self.tile_action,not failed and not (self.assistant.pending and
+            self.assistant.store.get(self.assistant.pending)['inputs']['action']=='pilot'))
         self._draw_grid()
 
     def _show_next_step(self,mapping,current):
@@ -202,10 +216,10 @@ class MapUI(ChatUI):
         elif mapping and mapping['state']=='completed' and not self.map_data:
             text='Click Open / reload map to view your saved map. You do not need to create it again.'
         elif self.map_data:
-            text=('Click Download selected tile above the map to review your choice.' if self.assistant.tile else
+            text=('Click Create tile download once. Status and the Drive link will appear in Downloads automatically.' if self.assistant.tile else
                   'Wait for colours to appear, then zoom in and click inside the study-area boundary to select one download tile. If only the boundary is visible, click Check map display.')
         else:
-            text='Choose a year, then click Review my map.'
+            text='Choose a year, then click Create map once.'
         self.next_step.value='<p role="status" style="padding:12px;border:1px solid #8ba9bf"><b>Next step:</b> '+escape(text)+'</p>'
         if current and current['type']=='export' and current['state']=='completed' and not current.get('destination_uris'):
             folder=current.get('drive_folder')
@@ -232,7 +246,7 @@ class MapUI(ChatUI):
         data=self.assistant.open_map()
         self._install_map(data)
         self.sync()
-        return {'message':'The land-cover layer was requested. Use the legend below it. Zoom in, click a grid square, then choose Download selected tile above the map.'}
+        return {'message':'The land-cover layer was requested. Zoom in, select a blue square and click Create tile download once. Follow Downloads above.'}
 
     def _install_map(self,data,*,preserve_selection=False):
         """Publish a complete fresh widget, not incremental layer mutations.
@@ -261,8 +275,8 @@ class MapUI(ChatUI):
         self.map_slot.children=(fresh,)
         old_map.close()
         self.display_check=None;self.display_status.value=''
-        self.selection_note.value=('<p><b>Selected tile: '+f"{tile['spec']['pixel_window']['column']//1024}, {tile['spec']['pixel_window']['row']//1024}"+'</b> · 10.24 × 10.24 km. Click Download selected tile to review.</p>' if tile else '<p><b>1. Select a tile:</b> click a blue square inside the boundary. <b>2. Download:</b> review and confirm your choice here.</p>')
-        self.map_note.value='<p><b>'+escape(area_name(data['request']))+' · '+str(data['request']['target_year'])+'</b> — full study-area layer requested. Coloured tiles load as you pan and zoom. The plain background is intentional; no street basemap is used. Blank areas do not confirm a land-cover result.</p>'
+        self.selection_note.value=('<p><b>Selected tile: '+f"{tile['spec']['pixel_window']['column']//1024}, {tile['spec']['pixel_window']['row']//1024}"+'</b> · 10.24 × 10.24 km · 10 m pixels · TIFF to your Google Drive. Click Create tile download once.</p>' if tile else '<p><b>1.</b> Select a blue square. <b>2.</b> Click Create tile download. The link appears in Downloads automatically.</p>')
+        self.map_note.value='<p><b>'+escape(area_name(data['request']))+' · '+str(data['request']['target_year'])+'</b> — Zoom in and select a blue square. Map colours load as you explore; grey areas may still be loading.</p>'
 
     def _fit_map(self):
         if self.map_data:
@@ -295,12 +309,22 @@ class MapUI(ChatUI):
         self.grid_note.value='<p>Zoom in to see the download grid. You can still click a location to select its tile.</p>' if limited else '<p>Click a blue grid square. The selected download is outlined in gold. Edge tiles contain NoData outside the study area.</p>'
 
     def _pick(self,spec):
-        if self._busy or self._polling or not self.map_data:return
+        if self._busy or not self.map_data:return
+        if self.assistant.tile and self.assistant.tile['spec']==spec:return
         self.assistant.choose_tile(spec,self.map_data['mapping_id'])
         self.highlight.data={'type':'FeatureCollection','features':[feature(spec)]}
         w=spec['pixel_window']
-        self.selection_note.value=f"<p><b>Selected tile: {w['column']//1024}, {w['row']//1024}</b> · 10.24 × 10.24 km. Click Download selected tile to review.</p>"
+        self.selection_note.value=f"<p><b>Selected tile: {w['column']//1024}, {w['row']//1024}</b> · 10.24 × 10.24 km · 10 m pixels · TIFF to your Google Drive. Click Create tile download once.</p>"
         self.sync()
+
+    def _create_map(self):
+        draft=self.assistant.prepare_mapping({'target_year':self.year.value})
+        return self.assistant.confirm(draft['draft_id']) if draft.get('type')=='preview' else draft
+
+    def _download_tile(self):
+        # The labelled button is the user's confirmation; selecting a cell is not.
+        draft=self.assistant.prepare_pilot()
+        return self.assistant.confirm(draft['draft_id']) if draft.get('type')=='preview' else draft
 
     def _map_click(self,**event):
         if event.get('type')=='click' and self.map_data and self.grid_toggle.value:
@@ -311,7 +335,7 @@ class MapUI(ChatUI):
         if 'column' in props and 'row' in props:self._pick(tile_spec(props['column'],props['row']))
 
     def _action(self,action):
-        if self._busy or self._polling or self._closed:return
+        if self._busy or self._closed:return
         self._busy=True
         def observed():
             try:return action()
@@ -328,6 +352,8 @@ class MapUI(ChatUI):
             self._busy=False
             if self._map_ready:
                 self.sync();self._ensure_map()
+                self._poll_wake.set()
+                self._checkpoint()
 
     def _save_mapping_failure(self):
         path=self.assistant.store.root/'landcover-mapping-failure.json'
@@ -336,6 +362,14 @@ class MapUI(ChatUI):
         return {'message':'Failure report downloaded. No mapping or export was started.'}
 
     def _save(self,backup):
+        if backup:
+            from .workspace import save_workspace
+            path=save_workspace(self.assistant,self.assistant.store.root/'landcover-workspace.zip',history=self.history)
+            if self.download:self.download(str(path))
+            return {'message':'All saved maps, download records and support details were saved. Open this ZIP with Continue saved work next time. TIFFs remain in Google Drive.'}
+        if self.assistant.selected:
+            current=self.assistant.describe()
+            if current.get('type')=='export' and current.get('error'):return super()._save(False)
         if not backup and self.display_check and not self.last_error:
             path=self.assistant.store.root/'landcover-display-check.json'
             if self.download:self.download(str(path))
@@ -346,6 +380,29 @@ class MapUI(ChatUI):
         write_json(path,self.last_error)
         if self.download:self.download(str(path))
         return {'message':'Display error details saved. Your map and downloads have not been changed.'}
+
+    def _checkpoint(self):
+        from .workspace import save_workspace
+        signature=tuple((j['job_id'],j['revision']) for j in self.assistant.store.list())
+        if not signature or signature==self._backup_signature:return
+        try:
+            save_workspace(self.assistant,self.assistant.store.root/'landcover-workspace.zip',history=self.history)
+            self._backup_signature=signature
+        except Exception as exc:
+            self.auto_status.value='<small>Work remains in this session. The recovery ZIP could not update: '+escape(error_detail(exc))+'</small>'
+
+    def _upload(self,change):
+        if not change['new']:return
+        from .workspace import is_workspace,restore_workspace,MAX_WORKSPACE_BYTES
+        def action():
+            entries=change['new']
+            if len(entries)!=1:raise ValueError('Choose one saved-work ZIP.')
+            content=bytes(entries[0]['content'])
+            if len(content)>MAX_WORKSPACE_BYTES:raise ValueError('Saved-work ZIP exceeds 512 MB.')
+            path=self.assistant.store.root/'assistant-upload.zip';path.write_bytes(content)
+            try:return restore_workspace(self.assistant,path) if is_workspace(path) else self.assistant.import_archive(path)
+            finally:path.unlink(missing_ok=True)
+        self._action(action);self.upload.value=();self.restore.selected_index=None
 
     def _send(self,_):
         text=self.message.value.strip()
@@ -376,25 +433,49 @@ class MapUI(ChatUI):
             if not self._closed and self._mapping() and self._mapping()['job_id']==key:self._action(self._open_map)
         self._load_task=loop.create_task(load())
 
+    async def _poll_once(self):
+        """Read-only remote progress; never submits, retries or cancels an export."""
+        rows=export_rows(self.assistant.store)
+        candidates=[]
+        for row in rows:
+            state=row['state']
+            if state in ACTIVE:candidates.append(row)
+            elif state=='completed' and not row.get('destination_uris') and row.get('operation_name'):
+                tries,at=self._link_checks.get(row['record_id'],(0,0))
+                if tries<3 and time.monotonic()-at>=60:candidates.append(row)
+        if not candidates:return
+        job=candidates[self._poll_index%len(candidates)];self._poll_index+=1
+        identifier=job['record_id'];self._polling=True
+        try:
+            if job['snapshot']:
+                from .workspace import recover_saved_export
+                record=self.assistant.store.get(identifier)
+                restored=await asyncio.to_thread(recover_saved_export,self.assistant.store,record)
+                if self.assistant.selected==identifier:self.assistant.selected=restored['job_id']
+            else:
+                if job['state']=='completed':
+                    tries,_=self._link_checks.get(identifier,(0,0))
+                    self._link_checks[identifier]=(tries+1,time.monotonic())
+                    await asyncio.to_thread(poll_export,self.assistant.store,identifier,refresh_destination=True)
+                else:await asyncio.to_thread(poll_export,self.assistant.store,identifier)
+            self._poll_checks[identifier]={'at':now()}
+        except Exception as exc:
+            self._poll_checks[identifier]={'at':now(),'error':error_detail(exc)}
+        finally:self._polling=False
+
     async def _poll_loop(self):
-        index=0
         while not self._closed:
-            await asyncio.sleep(self.poll_seconds)
-            if self._closed or self._busy or not self.live_ready:continue
-            self._polling=True
+            if self._closed:return
             try:
-                jobs=[j for j in self.assistant.store.list(kind='export') if j['state'] in {'queued','submitted','running','cancelling','submission_unknown'}]
-                if jobs:
-                    job=jobs[index%len(jobs)];index+=1
-                    if job.get('operation_name'):
-                        await asyncio.to_thread(poll_export,self.assistant.store,job['job_id'])
-                if not self._closed:
-                    self.auto_status.value='<small>Automatic progress check completed. Next check in about 20 seconds.</small>'
-            except Exception:
-                if not self._closed:self.auto_status.value='<small>Could not check the server. Showing the last saved status; will retry automatically.</small>'
-            finally:
-                self._polling=False
-                if not self._closed:self.sync();self._ensure_map()
+                if self.live_ready and not self._busy:await self._poll_once()
+                if not self._closed and not self._busy:
+                    self.sync();self._ensure_map();self._checkpoint()
+                    self.auto_status.value='<small>Downloads update automatically while this notebook is connected. No refresh click is needed.</small>'
+            except Exception as exc:
+                if not self._closed:self.auto_status.value='<small>Automatic check will retry. '+escape(error_detail(exc))+'</small>'
+            try:await asyncio.wait_for(self._poll_wake.wait(),timeout=self.poll_seconds)
+            except asyncio.TimeoutError:pass
+            self._poll_wake.clear()
 
     def close(self):
         super().close()
@@ -412,21 +493,31 @@ def display_map_assistant(assistant,*,download=None,connect=None):
 
 def restore_live_workspace(previous):
     """Replace an existing UI in this runtime using its cached prepared map."""
-    if not previous.map_data:
-        raise ValueError('There is no open map to restore in this runtime. Keep your saved work; do not create another map.')
     if previous._busy or previous._polling:
         raise ValueError('The assistant is busy. Wait for its current action, then run the repair cell again.')
-    if previous.assistant.mapping_id()!=previous.map_data['mapping_id']:
+    if previous.map_data and previous.assistant.mapping_id()!=previous.map_data['mapping_id']:
         raise ValueError('Select the prepared map before restoring its display.')
     from IPython.display import display
     assistant=previous.assistant
     old_guard=assistant.before_live
     fresh=None
     try:
-        fresh=MapUI(assistant,download=previous.download,connect=previous.connector,auto_poll=False)
+        fresh=MapUI(assistant,download=previous.download,connect=previous.connector,auto_poll=False,preserve_draft=True)
         fresh.live_ready=previous.live_ready
         fresh.connection.description='Google connected' if fresh.live_ready else 'Connect Google'
-        fresh._install_map(previous.map_data,preserve_selection=True)
+        fresh.year.unobserve(fresh._change_year,names='value')
+        fresh.year.value=previous.year.value
+        fresh.year.observe(fresh._change_year,names='value')
+        fresh.grid_toggle.value=previous.grid_toggle.value
+        fresh.message.value=previous.message.value
+        if previous.map_data:fresh._install_map(previous.map_data,preserve_selection=True)
+        if previous.map_data:
+            from .notebook_map import finite_number
+            if all(finite_number(v) for v in previous.map.center) and finite_number(previous.map.zoom):
+                with fresh.map.hold_sync():
+                    fresh.map.center=previous.map.center;fresh.map.zoom=previous.map.zoom
+        fresh.history=list(previous.history);fresh.transcript.value=''.join(fresh.history)
+        fresh._poll_checks=dict(getattr(previous,'_poll_checks',{}))
         fresh.sync()
     except Exception:
         assistant.before_live=old_guard
@@ -436,4 +527,6 @@ def restore_live_workspace(previous):
     try:fresh._poll_task=asyncio.get_running_loop().create_task(fresh._poll_loop())
     except RuntimeError:pass
     display(fresh.widget)
+    fresh._checkpoint()
+    fresh._ensure_map()
     return fresh
