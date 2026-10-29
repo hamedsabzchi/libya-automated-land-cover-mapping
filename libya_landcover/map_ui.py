@@ -6,7 +6,7 @@ from .chat_ui import ChatUI, render_reply, table, area_name
 from .map_view import feature, tile_at, tile_spec, visible_grid, legend_html, MapDisplayError, error_detail
 from .exports import poll_export
 from .job_store import now
-from .notebook_map import NotebookMap, valid_bounds
+from .notebook_map import NotebookMap, valid_bounds, view_for_bounds
 
 
 class MapUI(ChatUI):
@@ -31,18 +31,21 @@ class MapUI(ChatUI):
         self.map.observe(lambda change:self._draw_grid(),names='bounds')
         self.map.on_interaction(self._map_click)
         self.grid.on_click(self._grid_click)
+        self.map_slot=w.VBox([self.map])
         self.grid_toggle=w.Checkbox(value=True,description='Show download grid')
         self.grid_toggle.observe(lambda change:self._draw_grid(),names='value')
         self.open_button=w.Button(description='Open / reload map',icon='map',button_style='primary',layout=w.Layout(width='190px'))
         self.open_button.on_click(lambda _:self._action(self._open_map))
         self.check_display=w.Button(description='Check map display',icon='stethoscope',layout=w.Layout(width='190px'))
         self.check_display.on_click(lambda _:self._action(self._check_map_display))
+        self.restore_display=w.Button(description='Restore map display',icon='refresh',layout=w.Layout(width='190px'))
+        self.restore_display.on_click(lambda _:self._action(self._restore_map_display))
         self.display_status=w.HTML()
         self.failure_panel=w.HTML()
         self.failure_report=w.Button(description="Download failure report",icon="download",layout=w.Layout(width="220px"))
         self.failure_report.on_click(lambda _:self._action(self._save_mapping_failure))
         self.fit=w.Button(description='Zoom to study area')
-        self.fit.on_click(lambda _:self.map.fit_bounds(self.map_data['bounds']) if self.map_data else None)
+        self.fit.on_click(lambda _:self._fit_map())
         self.tile_action=w.Button(description='Download selected tile',icon='download',button_style='success',layout=w.Layout(width='220px'))
         self.tile_action.on_click(lambda _:self._action(assistant.prepare_pilot))
         self.map_note=w.HTML('<p>Plain background. Your land-cover layer will appear here after map preparation.</p>')
@@ -65,8 +68,9 @@ class MapUI(ChatUI):
         self.widget=w.VBox([w.HTML('<h2>Libya Land-Cover Assistant</h2><p>View the study-area map. Select the parts you need to download.</p>'),
             self.flow,self.next_step,self.step,self.connection_box,self.choices,self.mapping_review,self.activity,self.notice,
             self.progress,self.failure_panel,self.failure_report,self.auto_status,self.refresh,
-            w.HBox([self.open_button,self.fit,self.check_display,self.grid_toggle],layout=w.Layout(flex_flow='row wrap')),
-            self.map_note,self.display_status,self.map,self.legend,self.grid_note,self.selection_note,self.tile_action,self.download_review,
+            w.HBox([self.open_button,self.restore_display,self.fit,self.check_display,self.grid_toggle],layout=w.Layout(flex_flow='row wrap')),
+            self.selection_note,self.tile_action,self.download_review,
+            self.map_note,self.display_status,self.map_slot,self.legend,self.grid_note,
             w.HBox([self.backup,self.new],layout=w.Layout(flex_flow='row wrap')),
             self.chat,self.restore,self.support],layout=w.Layout(max_width='1150px',width='100%'))
         self._map_ready=True
@@ -110,7 +114,7 @@ class MapUI(ChatUI):
         mapping=current if current and current['type']=='mapping' else self._mapping()
         ready=bool(mapping and mapping['state']=='completed')
         failed=bool(current and current['type']=='mapping' and current['state'] in {'failed','interrupted'})
-        for widget in (self.map,self.map_note,self.grid_note,self.selection_note,self.grid_toggle,self.open_button,self.fit,self.check_display):
+        for widget in (self.map,self.map_slot,self.map_note,self.grid_note,self.selection_note,self.grid_toggle,self.open_button,self.restore_display,self.fit,self.check_display):
             self._visible(widget,not failed)
         self._visible(self.failure_report,failed)
         self._visible(self.failure_panel,failed)
@@ -122,9 +126,10 @@ class MapUI(ChatUI):
         self.open_button.disabled=not (ready and self.live_ready) or self._busy or self._polling
         self.fit.disabled=self.map_data is None
         self.check_display.disabled=self.map_data is None or not self.live_ready or self._busy or self._polling
+        self.restore_display.disabled=self.map_data is None or self._busy or self._polling
         self.tile_action.disabled=not (self.map_data and self.assistant.tile and self.live_ready) or self._busy or self._polling
         self._visible(self.legend,self.map_data is not None)
-        self._visible(self.tile_action,self.map_data is not None)
+        self._visible(self.tile_action,not failed)
         self._visible(self.refresh,bool(self.assistant.selected)) # Never hide progress behind another preview.
         self._visible(self.choices,self.live_ready and not self.assistant.pending and not mapping)
         self._visible(self.backup,ready)
@@ -177,7 +182,7 @@ class MapUI(ChatUI):
             text='Read the error details below. Your saved work is retained; do not create the map again to fix a display problem.'
         elif draft:
             text=('Review your map settings below, then click Create map.' if draft['action']=='mapping' else
-                  'Review the selected tile below the map, then click Create tile download. Nothing is sent until you confirm.')
+                  'Review the selected tile above the map, then click Create tile download. Nothing is sent until you confirm.')
         elif current and current['type']=='export':
             state=current['state']
             if state=='completed':
@@ -197,7 +202,7 @@ class MapUI(ChatUI):
         elif mapping and mapping['state']=='completed' and not self.map_data:
             text='Click Open / reload map to view your saved map. You do not need to create it again.'
         elif self.map_data:
-            text=('Click Download selected tile below the map to review your choice.' if self.assistant.tile else
+            text=('Click Download selected tile above the map to review your choice.' if self.assistant.tile else
                   'Wait for colours to appear, then zoom in and click inside the study-area boundary to select one download tile. If only the boundary is visible, click Check map display.')
         else:
             text='Choose a year, then click Review my map.'
@@ -224,20 +229,51 @@ class MapUI(ChatUI):
         except Exception as exc:raise MapDisplayError('open_map_interface',exc) from exc
 
     def _mount_map(self):
-        from ipyleaflet import TileLayer,GeoJSON
         data=self.assistant.open_map()
+        self._install_map(data)
+        self.sync()
+        return {'message':'The land-cover layer was requested. Use the legend below it. Zoom in, click a grid square, then choose Download selected tile above the map.'}
+
+    def _install_map(self,data,*,preserve_selection=False):
+        """Publish a complete fresh widget, not incremental layer mutations.
+
+        Colab may retain an empty/stale map view. Remount all layers together
+        using cached geometry and URL; this does not call the mapping backend.
+        """
+        import ipywidgets as w
+        from ipyleaflet import TileLayer,GeoJSON,LayersControl,ScaleControl
+        center,zoom=view_for_bounds(data['bounds'])
         raster=TileLayer(url=data['url'],name='Land cover '+str(data['request']['target_year']),attribution='Google Earth Engine · The AlphaEarth Foundations Satellite Embedding dataset is produced by Google and Google DeepMind.',max_zoom=22,bounds=data['bounds'],no_wrap=True)
         outline=GeoJSON(data=data['outline'],name='Study-area boundary',style={'color':'#222','weight':2,'fillOpacity':0})
-        self._clear_map();self.assistant.map_id=data['mapping_id'];self._attempted=data['mapping_id']
-        self.raster=raster;self.outline=outline
-        self.map.add(self.raster);self.map.add(self.outline)
-        # Selection overlays must stay above the raster.
-        self.map.remove(self.grid);self.map.remove(self.highlight);self.map.add(self.grid);self.map.add(self.highlight)
-        self.map.fit_bounds(data['bounds'])
+        grid_data,_=visible_grid(data['bounds'],data['area_xy']) if self.grid_toggle.value else ({'type':'FeatureCollection','features':[]},False)
+        grid=GeoJSON(data=grid_data,name='Download grid',style={'color':'#235b9d','weight':1,'fillOpacity':0.02},hover_style={'color':'#ffbf00','weight':3,'fillOpacity':0.15})
+        tile=self.assistant.tile if preserve_selection and self.assistant.map_id==data['mapping_id'] else None
+        highlight=GeoJSON(data={'type':'FeatureCollection','features':[feature(tile['spec'])] if tile else []},name='Selected download tile',style={'color':'#ffb000','weight':4,'fillOpacity':0.15})
+        fresh=NotebookMap(layers=(raster,outline,grid,highlight),center=center,zoom=zoom,
+            scroll_wheel_zoom=True,layout=w.Layout(height='520px',width='100%'))
+        fresh.add(LayersControl(position='topright'));fresh.add(ScaleControl(position='bottomleft'))
+        old_map=self.map
+        self.map=fresh;self.raster=raster;self.outline=outline;self.grid=grid;self.highlight=highlight
+        self.assistant.tile=tile;self.assistant.map_id=data['mapping_id'];self._attempted=data['mapping_id']
         self.map_data=data
+        fresh.observe(lambda change:self._draw_grid(),names='bounds')
+        fresh.on_interaction(self._map_click);grid.on_click(self._grid_click)
+        self.map_slot.children=(fresh,)
+        old_map.close()
+        self.display_check=None;self.display_status.value=''
+        self.selection_note.value=('<p><b>Selected tile: '+f"{tile['spec']['pixel_window']['column']//1024}, {tile['spec']['pixel_window']['row']//1024}"+'</b> · 10.24 × 10.24 km. Click Download selected tile to review.</p>' if tile else '<p><b>1. Select a tile:</b> click a blue square inside the boundary. <b>2. Download:</b> review and confirm your choice here.</p>')
         self.map_note.value='<p><b>'+escape(area_name(data['request']))+' · '+str(data['request']['target_year'])+'</b> — full study-area layer requested. Coloured tiles load as you pan and zoom. The plain background is intentional; no street basemap is used. Blank areas do not confirm a land-cover result.</p>'
-        self.sync()
-        return {'message':'The land-cover layer was requested. Use the legend below it. Zoom in, click a grid square, then choose Download selected tile.'}
+
+    def _fit_map(self):
+        if self.map_data:
+            center,zoom=view_for_bounds(self.map_data['bounds'])
+            with self.map.hold_sync():
+                self.map.center=center;self.map.zoom=zoom
+
+    def _restore_map_display(self):
+        if not self.map_data:raise ValueError('Open your prepared map first.')
+        self._install_map(self.map_data,preserve_selection=True)
+        return {'message':'The map window was rebuilt and centred on the study area. No mapping or export was started. Colours still depend on Earth Engine tile responses.'}
 
     def _check_map_display(self):
         from .display_diagnostics import check_display_tile
@@ -246,7 +282,7 @@ class MapUI(ChatUI):
         check=check_display_tile(self.map_data['url'],self.map.center,self.map.zoom)
         check.update(observed_at=now(),mapping_job_id=self.map_data['mapping_id'])
         self.display_check=check
-        self.display_status.value='<details open><summary>Map display check — share this for support</summary><p>'+escape(check['message'])+'</p><pre style="white-space:pre-wrap">'+escape(json.dumps(check,indent=2))+'</pre></details>'
+        self.display_status.value='<p>'+escape(check['message'])+'</p><details><summary>Map display check — share this for support</summary><pre style="white-space:pre-wrap">'+escape(json.dumps(check,indent=2))+'</pre></details>'
         from .bundle import write_json
         write_json(self.assistant.store.root/'landcover-display-check.json',check)
         return {'type':'display_check','message':check['message'],'diagnostic':check}
@@ -372,3 +408,32 @@ def display_map_assistant(assistant,*,download=None,connect=None):
     ui=MapUI(assistant,download=download,connect=connect)
     display(ui.widget)
     return ui
+
+
+def restore_live_workspace(previous):
+    """Replace an existing UI in this runtime using its cached prepared map."""
+    if not previous.map_data:
+        raise ValueError('There is no open map to restore in this runtime. Keep your saved work; do not create another map.')
+    if previous._busy or previous._polling:
+        raise ValueError('The assistant is busy. Wait for its current action, then run the repair cell again.')
+    if previous.assistant.mapping_id()!=previous.map_data['mapping_id']:
+        raise ValueError('Select the prepared map before restoring its display.')
+    from IPython.display import display
+    assistant=previous.assistant
+    old_guard=assistant.before_live
+    fresh=None
+    try:
+        fresh=MapUI(assistant,download=previous.download,connect=previous.connector,auto_poll=False)
+        fresh.live_ready=previous.live_ready
+        fresh.connection.description='Google connected' if fresh.live_ready else 'Connect Google'
+        fresh._install_map(previous.map_data,preserve_selection=True)
+        fresh.sync()
+    except Exception:
+        assistant.before_live=old_guard
+        if fresh:fresh.close()
+        raise
+    previous.close()
+    try:fresh._poll_task=asyncio.get_running_loop().create_task(fresh._poll_loop())
+    except RuntimeError:pass
+    display(fresh.widget)
+    return fresh

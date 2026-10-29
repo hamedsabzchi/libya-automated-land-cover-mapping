@@ -103,3 +103,14 @@ A user run failed before map display. Its pasted status did not include the unde
 Failed/interrupted mapping jobs now show an expanded error panel and a directly visible **Download failure report** button. Empty map controls are hidden for failed preparation. Reports include recorded engine status and a whitelist of runner-manifest failure fields. Future initialization, engine and runner failures retain a bounded sanitized exception chain in the local manifest, without changing reference GEE, the Python model/adapter or retry behavior. Older runs may have only a type/code because discarded exception details cannot be reconstructed.
 
 Tests exercise failure capture and the actual failure-report button without launching another mapping or export. Offline checks do not establish live model execution. For the already-failed 0.8.6 session, first download **Details and support → Save error / details** and share the JSON before updating, deleting the runtime or retrying. The original session contains evidence that another notebook cannot automatically access.
+
+
+## Blank-widget recovery (0.8.8)
+
+The latest live screenshot shows a completely empty map, including no boundary or grid; a separate one-tile HTTP check timed out. These observations do not identify the browser's underlying failure or prove that quota is the cause.
+
+Map mounting now creates a fresh widget with all four layers already attached and an initial study-area viewport. It avoids the previous sequence of separate add/remove messages and the asynchronous fit loop waiting for browser bounds. **Restore map display** rebuilds that widget from its cached outline, grid, selection and existing tile URL, without asking the backend to recreate the layer or starting a mapping/export. Viewing it can still make Earth Engine tile requests. The button retains a selected tile and any review awaiting confirmation. A stale or timed-out server tile URL is not fixed by rebuilding the widget.
+
+Selection, download and confirmation controls are above the map. Technical display diagnostics start collapsed. The one-time `python/repair_map_display.py` helper installs the pinned display update in the current Colab runtime, replaces only display modules and remounts the existing assistant. It retains the current store, jobs, chat model and Google connection; it does not reset the runtime or rerun the engine. Run it in the existing session, not a new notebook runtime.
+
+Regression tests simulate a map with missing layers, restore all layers and selection, retain an existing review, and check that no backend/map/export launch occurs. Actual Earth Engine colours and full-area rendering still require evidence from the user's Colab session. No reference, model, adapter or contract changes.

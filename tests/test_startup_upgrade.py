@@ -37,7 +37,7 @@ with tempfile.TemporaryDirectory() as folder:
     with patch.dict(sys.modules,{'google.colab':colab}), \
          patch('IPython.display.display',side_effect=display), patch('IPython.display.clear_output'), \
          patch('subprocess.run',commands), \
-         patch('importlib.metadata.version',side_effect=lambda name:'2.6.0' if name=='torch' else '0.8.7'), \
+         patch('importlib.metadata.version',side_effect=lambda name:'2.6.0' if name=='torch' else '0.8.8'), \
          patch('socket.socket.connect',side_effect=AssertionError('No network')):
         exec(source.replace('/content/',folder+'/'),ns)
         assert keep.read_text()=='preserve me' and old.store.database.exists()
@@ -59,7 +59,7 @@ with tempfile.TemporaryDirectory() as folder:
             assert ns['assistant'] is not old and ns['assistant'].store.root==old.store.root
             assert ns['assistant'].pending is None and old.store.get(draft)['state']=='discarded'
             assert ns['local_parser']._generate is parser._generate
-            assert sys.modules['libya_landcover'].__version__=='0.8.7'
+            assert sys.modules['libya_landcover'].__version__=='0.8.8'
             try: old.before_live()
             except ValueError: pass
             else: raise AssertionError('Old controls were not retired')

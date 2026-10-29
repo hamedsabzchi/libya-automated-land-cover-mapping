@@ -26,6 +26,21 @@ class LegendTests(unittest.TestCase):
 
 @unittest.skipUnless(HAS_MAP,'Install [map]; package CI requires it')
 class GridTests(unittest.TestCase):
+    def test_initial_view_contains_extent_without_browser_round_trip(self):
+        import math
+        from libya_landcover.notebook_map import view_for_bounds
+        for bounds in ([[32.6,13],[33,13.6]],[[25,9],[35,24]],[[70,10],[78,20]]):
+            center,zoom=view_for_bounds(bounds)
+            def point(lat,lon):
+                return ((lon+180)/360*256*2**zoom,
+                        (1-math.asinh(math.tan(math.radians(lat)))/math.pi)/2*256*2**zoom)
+            cx,cy=point(*center)
+            for lat,lon in bounds:
+                x,y=point(lat,lon)
+                self.assertLessEqual(abs(x-cx),320)
+                self.assertLessEqual(abs(y-cy),220)
+        with self.assertRaises(ValueError):view_for_bounds([[None,13],[33,14]])
+
     def test_browser_null_bounds_reproduce_without_ee_and_safe_map_recovers(self):
         from ipyleaflet import Map
         from traitlets import TraitError
@@ -184,7 +199,7 @@ class MapUiTests(unittest.IsolatedAsyncioTestCase):
             self.ui.tile_action.click()
             self.assertEqual(self.ui.mapping_review.children,())
             self.assertEqual(self.ui.download_review.children,(self.ui.review_box,))
-            self.assertIn('below the map',self.ui.next_step.value)
+            self.assertIn('above the map',self.ui.next_step.value)
             self.assertEqual(backend.starts,[])
             self.ui.confirm.click()
             identifier=self.a.selected
@@ -261,6 +276,73 @@ class MapUiTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(json.loads(saved.read_text())['mapping_job_id'],self.mid)
             self.ui.download=Mock();self.ui._save(False)
             self.ui.download.assert_called_once_with(str(saved))
+
+    async def test_restore_empty_view_keeps_selection_and_review_without_backend_calls(self):
+        self.ui.connection.click();await asyncio.sleep(.02)
+        self.ui._map_click(type='click',coordinates=[32.8,13.2])
+        selected=self.a.tile.copy()
+        artifact=self.a.describe()['outputs'][0]['artifact_id']
+        self.viewer.plan.return_value=(artifact,{'spec':selected['spec']})
+        self.ui.tile_action.click();pending=self.a.pending
+        old_map=self.ui.map
+        # Simulate a stale display with no layer views.
+        old_map.layers=()
+        self.viewer.reset_mock();self.a.launcher.reset_mock()
+        self.ui.restore_display.click()
+        self.assertIsNone(old_map.comm)
+        self.assertIsNot(self.ui.map,old_map)
+        self.assertEqual(self.a.tile,selected)
+        self.assertEqual(self.a.pending,pending)
+        self.assertEqual(self.ui.map.layers,(self.ui.raster,self.ui.outline,self.ui.grid,self.ui.highlight))
+        self.assertTrue(self.ui.highlight.data['features'])
+        self.assertTrue(self.ui.grid.data['features'])
+        self.assertLess(self.ui.widget.children.index(self.ui.tile_action),self.ui.widget.children.index(self.ui.map_slot))
+        self.assertFalse(self.ui.tile_action.disabled)
+        self.viewer.open.assert_not_called();self.viewer.plan.assert_not_called()
+        self.a.launcher.assert_not_called();self.assertFalse(self.store.list(kind='export'))
+
+    async def test_in_place_repair_uses_same_assistant_and_store(self):
+        from libya_landcover.map_ui import restore_live_workspace
+        self.ui.connection.click();await asyncio.sleep(.02)
+        self.ui._map_click(type='click',coordinates=[32.8,13.2])
+        old_map=self.ui.map;tile=self.a.tile.copy();selected=self.a.selected
+        self.viewer.reset_mock()
+        with patch('IPython.display.display'):
+            repaired=restore_live_workspace(self.ui)
+        self.addCleanup(repaired.close)
+        self.assertIs(repaired.assistant,self.a)
+        self.assertIs(repaired.assistant.store,self.store)
+        self.assertEqual(self.a.selected,selected);self.assertEqual(self.a.tile,tile)
+        self.assertTrue(repaired.live_ready);self.assertFalse(repaired.tile_action.disabled)
+        self.assertIsNone(old_map.comm);self.assertTrue(self.ui._closed)
+        self.viewer.open.assert_not_called();self.a.launcher.assert_not_called()
+        self.assertFalse(self.store.list(kind='export'))
+
+    async def test_missing_cached_view_does_not_retire_current_workspace(self):
+        from libya_landcover.map_ui import restore_live_workspace
+        with self.assertRaisesRegex(ValueError,'no open map'):
+            restore_live_workspace(self.ui)
+        self.assertFalse(self.ui._closed)
+        self.assertIsNotNone(self.ui.map.comm)
+
+    async def test_repair_cell_updates_display_only_in_existing_runtime(self):
+        import runpy
+        self.ui.connection.click();await asyncio.sleep(.02)
+        old_guard=self.a.before_live
+        helper=runpy.run_path(str(ROOT/'python/repair_map_display.py'))['repair_current_display']
+        # Failed installation must leave the current UI usable.
+        with patch('subprocess.run',return_value=Mock(returncode=1)):
+            with self.assertRaisesRegex(RuntimeError,'could not install'):helper(self.ui)
+        self.assertFalse(self.ui._closed);self.assertEqual(self.a.before_live,old_guard)
+        self.viewer.reset_mock()
+        with patch('subprocess.run',return_value=Mock(returncode=0)) as install, patch('IPython.display.display'):
+            repaired=helper(self.ui)
+        self.addCleanup(repaired.close)
+        self.assertIn('--no-deps',install.call_args.args[0])
+        self.assertIs(repaired.assistant,self.a);self.assertTrue(repaired.live_ready)
+        self.assertIs(repaired.assistant.store,self.store)
+        self.viewer.open.assert_not_called();self.a.launcher.assert_not_called()
+        self.assertFalse(self.store.list(kind='export'))
 
     async def test_failed_preparation_exposes_reason_and_one_click_report_without_rerun(self):
         self.ui.connection.click();await asyncio.sleep(.02)
