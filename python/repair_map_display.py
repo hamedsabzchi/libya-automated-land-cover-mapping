@@ -3,7 +3,7 @@ import importlib
 import subprocess
 import sys
 
-SERVICE_COMMIT = "9e91a3c54adba54ba0808b4dd5b9cfa1b64364ef"
+SERVICE_COMMIT = "de0350d0350f0cf36cfc783cdcbef733a07cc3dd"
 
 
 def repair_current_display(previous):
