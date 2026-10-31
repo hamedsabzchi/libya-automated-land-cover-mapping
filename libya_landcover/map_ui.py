@@ -16,6 +16,8 @@ class MapUI(ChatUI):
         import ipywidgets as w
         from ipyleaflet import GeoJSON,LayersControl,ScaleControl
         self._map_ready=False;self._busy=False;self._polling=False
+        self._browser_updates=False;self._browser_callback=None;self._browser_ticking=False
+        self._browser_last_poll=None;self._last_view_check=None
         self.last_error=None
         self.display_check=None
         self.map_data=None;self._attempted=None;self._load_task=None;self._poll_task=None
@@ -145,7 +147,7 @@ class MapUI(ChatUI):
         self._visible(self.backup,ready)
         self._visible(self.new,bool(mapping and mapping['state'] in {'completed','failed','interrupted'}) and not self.assistant.pending)
         stage=1 if not self.live_ready else (3 if self.map_data else 2)
-        self.flow.value='<p style="padding:12px;background:#eaf2f8">'+ ' &nbsp; → &nbsp; '.join(
+        self.flow.value='<p style="padding:12px;background:#eaf2f8;color:#17324d">'+ ' &nbsp; → &nbsp; '.join(
             ('<b>'+str(i)+'. '+label+'</b>') if i==stage else str(i)+'. '+label
             for i,label in enumerate(['Connect','Prepare map','Explore & download'],1))+'</p>'
         if not self.assistant.pending:
@@ -421,6 +423,7 @@ class MapUI(ChatUI):
 
     def _ensure_map(self):
         if not self._map_ready or not self.live_ready or self._busy or self._closed:return
+        if self._browser_updates:return # Colab mounts inside the next browser callback.
         mapping=self._mapping()
         if not mapping or mapping['state']!='completed':return
         key=mapping['job_id']
@@ -433,8 +436,7 @@ class MapUI(ChatUI):
             if not self._closed and self._mapping() and self._mapping()['job_id']==key:self._action(self._open_map)
         self._load_task=loop.create_task(load())
 
-    async def _poll_once(self):
-        """Read-only remote progress; never submits, retries or cancels an export."""
+    def _poll_candidate(self):
         rows=export_rows(self.assistant.store)
         candidates=[]
         for row in rows:
@@ -443,32 +445,86 @@ class MapUI(ChatUI):
             elif state=='completed' and not row.get('destination_uris') and row.get('operation_name'):
                 tries,at=self._link_checks.get(row['record_id'],(0,0))
                 if tries<3 and time.monotonic()-at>=60:candidates.append(row)
-        if not candidates:return
+        if not candidates:return None
         job=candidates[self._poll_index%len(candidates)];self._poll_index+=1
-        identifier=job['record_id'];self._polling=True
+        return job
+
+    def _read_export(self,job):
+        """Read/reconcile one existing export. Never submit, retry or cancel."""
+        identifier=job['record_id']
+        if job['snapshot']:
+            from .workspace import recover_saved_export
+            record=self.assistant.store.get(identifier)
+            return recover_saved_export(self.assistant.store,record)['job_id']
+        if job['state']=='completed':
+            tries,_=self._link_checks.get(identifier,(0,0))
+            self._link_checks[identifier]=(tries+1,time.monotonic())
+            poll_export(self.assistant.store,identifier,refresh_destination=True)
+        else:poll_export(self.assistant.store,identifier)
+        return identifier
+
+    def _read_observed(self,job,restored):
+        identifier=job['record_id']
+        if self.assistant.selected==identifier:self.assistant.selected=restored
+        self._poll_checks[identifier]={'at':now()}
+
+    async def _poll_once(self):
+        """Read-only remote progress; ordinary notebook fallback."""
+        job=self._poll_candidate()
+        if not job:return
+        self._polling=True
         try:
-            if job['snapshot']:
-                from .workspace import recover_saved_export
-                record=self.assistant.store.get(identifier)
-                restored=await asyncio.to_thread(recover_saved_export,self.assistant.store,record)
-                if self.assistant.selected==identifier:self.assistant.selected=restored['job_id']
-            else:
-                if job['state']=='completed':
-                    tries,_=self._link_checks.get(identifier,(0,0))
-                    self._link_checks[identifier]=(tries+1,time.monotonic())
-                    await asyncio.to_thread(poll_export,self.assistant.store,identifier,refresh_destination=True)
-                else:await asyncio.to_thread(poll_export,self.assistant.store,identifier)
-            self._poll_checks[identifier]={'at':now()}
+            restored=await asyncio.to_thread(self._read_export,job)
+            self._read_observed(job,restored)
         except Exception as exc:
-            self._poll_checks[identifier]={'at':now(),'error':error_detail(exc)}
+            self._poll_checks[job['record_id']]={'at':now(),'error':error_detail(exc)}
         finally:self._polling=False
+
+    def _browser_tick(self):
+        """Colab invokes this read/display-only callback without user clicks.
+
+        It runs synchronously in an active frontend request, without depending
+        on an idle asyncio task or its background widget delivery.
+        """
+        if self._closed:return {'closed':True}
+        if self._busy or self._polling or self._browser_ticking:return {'busy':True}
+        from .colab_updates import send_widget_tree
+        self._browser_ticking=True
+        try:
+            self.sync()
+            mapping=self._mapping()
+            if (self.live_ready and mapping and mapping['state']=='completed' and
+                    self.map_data is None and self._attempted!=mapping['job_id']):
+                self._attempted=mapping['job_id']
+                self._action(self._open_map)
+            stamp=time.monotonic()
+            if self.live_ready and (self._browser_last_poll is None or stamp-self._browser_last_poll>=self.poll_seconds):
+                self._browser_last_poll=stamp
+                job=self._poll_candidate()
+                if job:
+                    self._polling=True
+                    try:self._read_observed(job,self._read_export(job))
+                    except Exception as exc:self._poll_checks[job['record_id']]={'at':now(),'error':error_detail(exc)}
+                    finally:self._polling=False
+            self.sync();self._checkpoint()
+            self._last_view_check=now()
+            self.auto_status.value='<small>Map and download status update automatically. Last checked: '+escape(self._last_view_check)+'</small>'
+            # Explicit sends are necessary even when Python values did not change:
+            # the preceding background message may never have reached Colab.
+            send_widget_tree(self.widget)
+            return {'closed':False,'checked_at':self._last_view_check}
+        except Exception as exc:
+            self.auto_status.value='<small>Display update could not finish: '+escape(error_detail(exc))+'</small>'
+            send_widget_tree(self.widget)
+            return {'closed':False,'error':error_detail(exc)}
+        finally:self._browser_ticking=False
 
     async def _poll_loop(self):
         while not self._closed:
             if self._closed:return
             try:
-                if self.live_ready and not self._busy:await self._poll_once()
-                if not self._closed and not self._busy:
+                if self.live_ready and not self._busy and not self._browser_updates:await self._poll_once()
+                if not self._closed and not self._busy and not self._browser_updates:
                     self.sync();self._ensure_map();self._checkpoint()
                     self.auto_status.value='<small>Downloads update automatically while this notebook is connected. No refresh click is needed.</small>'
             except Exception as exc:
@@ -478,6 +534,8 @@ class MapUI(ChatUI):
             self._poll_wake.clear()
 
     def close(self):
+        from .colab_updates import detach_colab_updates
+        detach_colab_updates(self)
         super().close()
         if self._map_ready:self.map.close()
         for task in (self._poll_task,self._load_task):
@@ -488,6 +546,8 @@ def display_map_assistant(assistant,*,download=None,connect=None):
     from IPython.display import display
     ui=MapUI(assistant,download=download,connect=connect)
     display(ui.widget)
+    from .colab_updates import attach_colab_updates
+    attach_colab_updates(ui)
     return ui
 
 
@@ -527,6 +587,9 @@ def restore_live_workspace(previous):
     try:fresh._poll_task=asyncio.get_running_loop().create_task(fresh._poll_loop())
     except RuntimeError:pass
     display(fresh.widget)
+    from .colab_updates import attach_colab_updates
+    attach_colab_updates(fresh)
+    if fresh._browser_updates:fresh._browser_tick()
     fresh._checkpoint()
     fresh._ensure_map()
     return fresh

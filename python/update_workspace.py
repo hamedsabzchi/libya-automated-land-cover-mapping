@@ -19,7 +19,7 @@ async def update_current_workspace(previous):
     if old_task:
         old_task.cancel()
         try:await old_task
-        except asyncio.CancelledError:pass
+        except (asyncio.CancelledError, Exception):pass
     previous._busy=True
     old_assistant_class=previous.assistant.__class__
     old_display=previous.widget.layout.display
@@ -34,7 +34,7 @@ async def update_current_workspace(previous):
         if installed.returncode:raise RuntimeError('Update installation failed. Your current work is retained.')
         importlib.invalidate_caches()
         # No engine, adapter, classifier or authentication modules are reloaded.
-        for name in ('downloads','exports','workspace','chat_ui','notebook_map','map_ui'):
+        for name in ('downloads','exports','workspace','chat_ui','notebook_map','colab_updates','map_ui'):
             module=importlib.import_module('libya_landcover.'+name);importlib.reload(module)
         from libya_landcover.workspace import save_workspace
         backup=save_workspace(previous.assistant,previous.assistant.store.root/'landcover-before-update.zip',history=previous.history)
@@ -52,8 +52,8 @@ async def update_current_workspace(previous):
         previous._busy=False
         updated=restore_live_workspace(previous)
         import libya_landcover
-        libya_landcover.__version__='0.9.0'
-        print('Ready. Select a blue square and click Create tile download once. Follow Downloads above; no refresh clicks are needed.')
+        libya_landcover.__version__='0.9.1'
+        print('Ready. Follow Next step above. Your existing maps and downloads are retained.')
         return updated
     except Exception:
         previous.assistant.__class__=old_assistant_class

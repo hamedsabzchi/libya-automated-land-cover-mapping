@@ -495,6 +495,78 @@ class MapUiTests(unittest.IsolatedAsyncioTestCase):
             self.assertIn('fixture',self.ui.progress.value);submit.assert_not_called();poll.assert_called_once()
             self.ui.close();await asyncio.sleep(.03);poll.assert_called_once()
 
+    async def test_colab_tick_opens_finished_map_when_async_tasks_never_run(self):
+        # Reproduce the user's stale queued screen with a completed worker record.
+        # No event-loop yield, user refresh, model launch or export is needed.
+        self.ui._browser_updates=True;self.ui.live_ready=True
+        saved=self.store.get(self.mid)
+        queued=self.store.update(saved,state='queued')
+        self.ui.sync();self.assertIn('queued',self.ui.progress.value)
+        self.store.update(queued,state='completed')
+        with patch.object(self.ui.progress,'send_state',wraps=self.ui.progress.send_state) as send:
+            result=self.ui._browser_tick()
+            self.assertFalse(result['closed']);send.assert_called()
+        self.assertIn('completed',self.ui.progress.value)
+        self.assertNotIn('Wait while your map is prepared',self.ui.next_step.value)
+        self.assertIsNotNone(self.ui.raster)
+        self.assertEqual(self.ui.map_data['mapping_id'],self.mid)
+        self.viewer.open.assert_called_once_with(self.mid)
+        self.ui._browser_tick();self.viewer.open.assert_called_once()
+        self.a.launcher.assert_not_called();self.assertEqual(self.remote.starts,[])
+        self.assertIsNone(self.ui._load_task)
+
+    async def test_colab_tick_delivers_export_link_without_idle_async_task(self):
+        from libya_landcover.pilot import create_pilot
+        self.ui._browser_updates=True;self.ui.live_ready=True
+        spec=tile_spec(36864,-339968)
+        job=create_pilot(self.store,self.mid,self.a.describe()['outputs'][0]['artifact_id'],{'spec':spec})
+        self.store.update(job,state='running',operation_name='projects/example-project/operations/a')
+        self.a.selected=job['job_id']
+        self.remote.response={'done':True,'metadata':{'state':'SUCCEEDED','destinationUris':['https://drive.google.com/drive/folders/colab-result']}}
+        with patch('libya_landcover.map_ui.poll_export',wraps=__import__('libya_landcover.exports',fromlist=['poll_export']).poll_export) as poll:
+            self.ui._browser_tick()
+            self.assertIn('colab-result',self.ui.downloads.value)
+            self.assertEqual(self.store.get(job['job_id'])['state'],'completed')
+            self.ui._browser_tick();poll.assert_called_once()
+        self.assertEqual(self.remote.starts,[]);self.a.launcher.assert_not_called()
+
+    async def test_colab_ticks_avoid_overlap_and_preserve_pending_choices(self):
+        self.ui._browser_updates=True;self.ui.live_ready=True
+        self.ui._browser_tick()
+        self.ui._map_click(type='click',coordinates=[32.8,13.2])
+        self.viewer.plan.return_value=(self.a.describe()['outputs'][0]['artifact_id'],{'spec':self.a.tile['spec']})
+        self.ui._action(self.a.prepare_pilot);pending=self.a.pending;tile=self.a.tile.copy()
+        with patch.object(self.ui,'sync',wraps=self.ui.sync) as sync:
+            for flag in ('_busy','_polling','_browser_ticking'):
+                setattr(self.ui,flag,True)
+                self.assertEqual(self.ui._browser_tick(),{'busy':True})
+                setattr(self.ui,flag,False)
+            sync.assert_not_called()
+        self.ui._browser_tick()
+        self.assertEqual(self.a.pending,pending);self.assertEqual(self.a.tile,tile)
+        self.assertEqual(self.remote.starts,[]);self.a.launcher.assert_not_called()
+        self.ui.close()
+        self.assertEqual(self.ui._browser_tick(),{'closed':True})
+
+    async def test_colab_bridge_registration_and_replacement_retire_old_callback(self):
+        import sys,types
+        from libya_landcover.colab_updates import attach_colab_updates
+        from libya_landcover.map_ui import restore_live_workspace
+        output=Mock();colab=types.ModuleType('google.colab');colab.output=output
+        with patch.dict(sys.modules,{'google.colab':colab}),patch('IPython.display.display') as display:
+            self.assertTrue(attach_colab_updates(self.ui))
+            name,callback=output.register_callback.call_args.args
+            self.assertTrue(name.startswith('libya_landcover.refresh_'))
+            self.assertIn('google.colab.kernel.invokeFunction',display.call_args.args[0].data)
+            self.assertFalse(callback().data['closed'])
+            fresh=restore_live_workspace(self.ui)
+            self.addCleanup(fresh.close)
+            output.unregister_callback.assert_called_once_with(name)
+            self.assertEqual(output.register_callback.call_count,2)
+            self.assertEqual(callback().data,{'closed':True})
+        self.assertTrue(fresh._browser_updates)
+        self.assertEqual(self.remote.starts,[]);self.a.launcher.assert_not_called()
+
     async def test_errors_are_visible_outside_chat_and_existing_map_reopens(self):
         self.ui.connection.click();await asyncio.sleep(.02)
         self.ui.new.click()
