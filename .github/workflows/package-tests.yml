@@ -24,7 +24,7 @@ jobs:
       - name: Install wheel into a fresh environment
         run: |
           python -m venv /tmp/wp04-wheel
-          /tmp/wp04-wheel/bin/pip install "$(ls dist/*.whl)[chat]"
+          /tmp/wp04-wheel/bin/pip install "$(ls dist/*.whl)[map]"
       - name: Exercise installed commands outside the source checkout
         working-directory: /tmp
         run: |
@@ -35,3 +35,4 @@ jobs:
           node --check /tmp/reference-session.js
       - name: Verify orchestration and offline EE graphs
         run: /tmp/wp04-wheel/bin/python -m unittest discover -s tests -p 'test_*.py' -v
+

@@ -163,11 +163,17 @@ class Assistant:
                     job = create_pilot(self.store, data["mapping_job_id"], data["artifact_id"], data["plan"])
                     self.selected = job["job_id"]
                     self.store.update(draft, target_job_id=job["job_id"])
-                    job = submit_export(self.store, job["job_id"])
+                    if not job.get('operation_name') and job['state'] not in {'completed','failed','cancelled'}:
+                        job = submit_export(self.store, job["job_id"])
                 else:
                     raise ValueError("Unsupported confirmed action")
             except Exception as exc:
-                return {"type": "execution_error", "message": "Execution could not be confirmed. Check the job status before trying again; there is no automatic retry.",
+                from .map_view import error_detail
+                detail=error_detail(exc) if data['action']=='pilot' else 'Map worker could not start ('+type(exc).__name__+')'
+                if job:
+                    recorded=self.store.get(job['job_id'])
+                    self.store.update(recorded,error={'code':'EXECUTION_ERROR','message':detail,'type':type(exc).__name__})
+                return {"type": "execution_error", "message": "Execution could not be confirmed: "+detail+". Your job record is retained; no automatic retry will start.",
                         "error_type": type(exc).__name__, "job_id": job["job_id"] if job else None}
             return self.describe(job["job_id"])
 
@@ -199,7 +205,7 @@ class Assistant:
         status = mapping_status(self.store, job["job_id"])
         response = {"type": "mapping", "job_id": job["job_id"], "state": job["state"],
             "source": "local_ledger", "observed_at": now(), "error": job.get("error"),
-            "engine_status": status.get("engine_status"),
+            "engine_status": status.get("engine_status"), "runner_failure": status.get("runner_failure"),
             "message": "This is the mapping-engine status. A completed mapping contains saved map graphs; it does not mean the entire area has been delivered as a TIFF."}
         if job["state"] == "completed":
             checked = checked_mapping_bundle(self.store, job)

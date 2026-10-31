@@ -97,20 +97,36 @@ WP03 ports the final active GEE **modeling core** documented in [WP01](docs/gee-
 
 See [Python engine integration](docs/python-engine-integration.md) for usage, compatibility notes and checks. Offline software tests include comparisons with extracted GEE client functions and serialization using the actual Earth Engine Python client. The [Tripoli live comparison](docs/wp04-tripoli-comparison.md) now matches all recorded observation groups; additional WP04 cases remain open. WP05 adds a separate job/export layer described below; the adapter itself does not implement jobs or change the GEE reference. WP06 adds a bounded conversational interface; direct-download services remain later work.
 
-## Start here: English assistant without a paid API (WP07)
+## Start here: map workspace (WP08)
 
-[Open the free-English-chat notebook in Colab](https://colab.research.google.com/github/hamedsabzchi/libya-automated-land-cover-mapping/blob/feat/wp07-free-colab-chat/python/07_wp07_free_english_assistant.ipynb).
-Click **Start assistant** once and wait for the app. Everything for the normal
-workflow is in this notebook; no previous ZIP, notebook or code edit is needed.
-Connect Google, choose a year, review the request, and follow the next action on
-screen. English chat is in the same page. **Continue saved work** is optional.
+[Open the map assistant in Colab](https://colab.research.google.com/github/hamedsabzchi/libya-automated-land-cover-mapping/blob/feat/wp08-map-workspace/python/08_wp08_map_workspace.ipynb).
+Click **Start assistant** once. Follow **Connect → Prepare map → Explore & download** and the visible **Next step** instruction.
+The normal workflow is in this one notebook; no previous ZIP or code edits are needed.
 
-The language model runs inside Colab without an API key or paid inference service.
-Version 0.7.1 keeps the reference engine and explicit confirmation unchanged.
-Tripoli is the configured area; the project owner must grant users access to its
-GEE project and data. The current download is **one small sample window**, not a
-whole-region delivery. Free Colab resources are limited; chat may take tens of
-seconds. See [usage and limitations](docs/wp07-free-colab-chat.md).
+- Connect the Google account authorized for the configured Tripoli project/data.
+- Choose a year and click **Create map** once. Progress updates automatically.
+- Explore the full study-area land-cover layer and its 12-class legend.
+- Select a blue square and click **Create tile download** once. The **Downloads**
+  section keeps its status and Drive link visible automatically, even when you select another tile.
+- **Ask the assistant** is optional English help for colours, next steps, status,
+  preparing another year, and downloading the tile selected on the map.
+
+Version 0.9.0 keeps the reference GEE, Python modeling engine and adapter unchanged.
+Display requests use the retained final-map graph over the actual AOI; downloads
+use selected 1024 × 1024 windows on the existing 10 m grid. Display tiles load on
+demand: an accepted map request does not prove every location has rendered.
+If the map is empty, expand **Map tools and diagnostics** and use **Restore map display**;
+do not create the map again.
+This is not a completed whole-region TIFF delivery or an automatic full-grid export.
+
+No paid chat API, external app server or Colab Pro subscription is required by the
+notebook. Free Colab resources are limited; Earth Engine access and project quotas
+still apply. The local chat model can misunderstand requests; buttons remain
+available if chat cannot load. **Save work for later** downloads all completed maps,
+export records and support evidence in one recovery ZIP. TIFFs remain in Drive. See [WP08 usage, boundaries and acceptance](docs/wp08-map-workspace.md).
+
+The [WP07 notebook](python/07_wp07_free_english_assistant.ipynb) and
+[WP07 notes](docs/wp07-free-colab-chat.md) remain available for the earlier sample-only interface.
 
 ## Earlier API-based conversational assistant (WP06)
 

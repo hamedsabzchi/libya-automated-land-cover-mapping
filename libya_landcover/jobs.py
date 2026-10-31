@@ -206,6 +206,19 @@ def mapping_status(store, job_id):
     job = store.get(job_id)
     if job["kind"] != "mapping":
         return job
+    manifest_path = store.folder(job_id) / "bundle" / "manifest.json"
+    if job['state'] in {'failed','interrupted'} and manifest_path.exists():
+        try:
+            manifest=json.loads(manifest_path.read_text(encoding='utf-8'))
+            from .map_view import error_detail
+            # Only known diagnostic fields; never include graphs or arbitrary manifest extras.
+            failure={key:error_detail(str(manifest[key])) for key in ('bundle_state','error_type') if key in manifest}
+            failure['details']=[{'error_type':error_detail(str(item.get('error_type',''))),
+                                 'detail':error_detail(str(item.get('detail','')))}
+                                for item in manifest.get('failure_details',[])[:3] if isinstance(item,dict)]
+            job['runner_failure']=failure
+        except (OSError,ValueError,TypeError,AttributeError):
+            job['runner_failure']={'bundle_state':'unreadable_manifest'}
     path = store.folder(job_id) / "bundle" / "status.jsonl"
     if path.exists():
         lines = path.read_text(encoding="utf-8").splitlines()

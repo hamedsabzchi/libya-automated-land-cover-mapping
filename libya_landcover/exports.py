@@ -161,7 +161,8 @@ def _apply_operation(store, job, operation):
                     urlparse(uri).scheme == "https" and urlparse(uri).hostname in {"drive.google.com", "docs.google.com"}]
     error = None
     if state == "failed":
-        error = {"code": "EXPORT_FAILED", "message": "Earth Engine export failed; inspect the operation in Tasks.",
+        from .map_view import error_detail
+        error = {"code": "EXPORT_FAILED", "message": error_detail(operation.get("error", {}).get("message") or "Earth Engine export failed; inspect the operation in Tasks."),
                  "remote_code": operation.get("error", {}).get("code")}
     if job["cancel_requested"] and state not in TERMINAL:
         state = "cancelling"
@@ -238,9 +239,15 @@ def submit_export(store, job_id, *, backend=None):
                 "type": type(exc).__name__, "message": "Submission outcome unknown. Poll/reconcile or explicitly resubmit with this same job ID."})
 
 
-def poll_export(store, job_id, *, backend=None):
+def poll_export(store, job_id, *, backend=None, refresh_destination=False):
     with store.lock("export-" + canonical_uuid(job_id)):
         job = _export(store, job_id)
+        if refresh_destination and job['state']=='completed' and not job.get('destination_uris') and job.get('operation_name'):
+            operation=_backend(job,backend).get(job['operation_name'])
+            # A later destination lookup must never regress an already completed job.
+            if operation.get('done') and not operation.get('error') and operation.get('metadata',{}).get('destinationUris'):
+                return _apply_operation(store,job,operation)
+            return job
         if job["state"] in TERMINAL or job["state"] == "queued":
             return job
         client = _backend(job, backend)

@@ -75,6 +75,17 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual(manifest['bundle_state'],'initialization_failed')
         self.assertFalse((self.directory/'run/result.json').exists())
 
+    def test_underlying_engine_exception_is_saved_for_support_without_rerun(self):
+        with patch.object(cli,'initialize'), patch.object(engine,'search_seeds',side_effect=RuntimeError('Computation timed out https://example.test/?token=hidden access_token=hidden')) as run:
+            code, _, _ = self.call(self.args())
+        self.assertEqual(code,1)
+        run.assert_called_once()
+        manifest=cli.read_json(self.directory/'run/manifest.json')
+        self.assertEqual(manifest['bundle_state'],'engine_failed')
+        self.assertEqual(manifest['failure_details'][0]['error_type'],'RuntimeError')
+        self.assertIn('Computation timed out',manifest['failure_details'][0]['detail'])
+        self.assertNotIn('hidden',json.dumps(manifest))
+
     def successful_worker(self, config, on_event):
         for phase in ('asset_preflight','coverage_preflight'):
             on_event({'phase':phase})

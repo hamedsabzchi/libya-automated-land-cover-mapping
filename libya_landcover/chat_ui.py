@@ -46,10 +46,11 @@ def render_reply(reply):
     if reply.get('type') == 'jobs':
         rows += [(j['kind'] + ' · ' + j['state'],j['job_id']) for j in reply.get('jobs',[])]
     links = []
-    for uri in reply.get('destination_uris',[]):
+    from .downloads import result_links
+    for uri in result_links(reply.get('destination_uris',[])):
         if isinstance(uri,str):
             parsed = urlparse(uri)
-            if parsed.scheme == 'https' and parsed.netloc == 'drive.google.com':
+            if parsed.scheme == 'https' and parsed.netloc in {'drive.google.com','docs.google.com'}:
                 links.append('<p><a target="_blank" rel="noopener noreferrer" href="' + escape(uri,quote=True) + '">Open result in Google Drive</a></p>')
     details = {k:v for k,v in reply.items() if k != 'message'}
     metadata = ('<details><summary>Technical details</summary><pre style="white-space:pre-wrap;overflow-wrap:anywhere">' +
@@ -102,13 +103,13 @@ def simple_reply(reply):
 
 
 class ChatUI:
-    def __init__(self, assistant, *, download=None, connect=None):
+    def __init__(self, assistant, *, download=None, connect=None, preserve_draft=False):
         import ipywidgets as w
         self.assistant, self.download, self.connector = assistant, download, connect
         self.live_ready = connect is None
         if connect is not None:
             assistant.before_live = self._require_connection
-        assistant.discard()
+        if not preserve_draft:assistant.discard()
         self._draft_id = None
         self.history = []
         self._closed = False
@@ -232,7 +233,7 @@ class ChatUI:
         self.history = self.history[-20:]
         self.transcript.value = ''.join(self.history)
 
-    def sync(self):
+    def sync(self, *, current=None):
         self._draft_id = self.assistant.pending
         self.confirm.disabled = self._draft_id is None
         self.connection.disabled = self.connector is None or self.live_ready
@@ -246,7 +247,8 @@ class ChatUI:
             self.select.value = self.assistant.selected or ''
         finally:
             self.select.observe(self._selection, names='value')
-        current = self.assistant.describe() if self.assistant.selected else None
+        if current is None and self.assistant.selected:
+            current = self.assistant.describe()
         active = current is not None and current['state'] in {'queued', 'running', 'submitting', 'submitted', 'cancelling', 'submission_unknown'}
         self._visible(self.connection_box, not self.live_ready)
         self._visible(self.choices, self.live_ready and current is None and not self._draft_id)
