@@ -4,7 +4,7 @@ import importlib
 import subprocess
 import sys
 
-SERVICE_COMMIT = "3aa8fb73f983fea933572c61aee863619f6c2ad1"
+SERVICE_COMMIT = "6dbd0bd7c451f8d635786d52bd442b11e5fc211c"
 
 
 async def update_current_workspace(previous):
