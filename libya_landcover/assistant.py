@@ -15,7 +15,7 @@ import zipfile
 
 from contracts import RunRequest
 from .bundle import write_json
-from .chat_language import GuidedParser, HELP, GUIDED_HELP, IntentError, validate_intent
+from .chat_language import GuidedParser, HELP, GUIDED_HELP, IntentError, validate_intent, accuracy_intent
 from .job_store import now
 from .jobs import checked_mapping_bundle, enqueue_mapping, mapping_status, project_id
 from .exports import poll_export, submit_export
@@ -117,10 +117,17 @@ class Assistant:
             old = self.store.get(self.pending)
             if old["state"] == "prepared" and old["inputs"]["action"] == "mapping":
                 context["pending_request"] = old["inputs"]["request"]
-        # Every new message invalidates the old confirmation, including parse errors.
-        self.discard()
-        parsed = validate_intent(self.parser.parse(text, context))
+        # Reading saved accuracy preserves the current selection and pending review.
+        # Other messages, including parse errors, keep the existing expiry behavior.
+        try:
+            parsed = validate_intent(accuracy_intent(text) or self.parser.parse(text, context))
+        except Exception:
+            self.discard()
+            raise
         action = parsed["action"]
+        if action == "accuracy":
+            return self.accuracy(parsed["job_id"])
+        self.discard()
         self.clarification = None
         if action == "mapping":
             settings = context["pending_request"] or {k: v for k, v in self.profile.items() if k != "project"}
@@ -137,6 +144,11 @@ class Assistant:
             self.clarification = {"request": text, "question": parsed["question"]}
             return {"type": "clarify", "message": parsed["question"] or HELP}
         return {"type": "help", "message": GUIDED_HELP if isinstance(self.parser, GuidedParser) else HELP}
+
+    def accuracy(self, job_id=None):
+        """Local saved-result read; never select another job or call before_live."""
+        from .accuracy import saved_accuracy
+        return saved_accuracy(self.store, job_id or self.selected)
 
     def confirm(self, draft_id):
         with self.store.lock("assistant-confirm"):

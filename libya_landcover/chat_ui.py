@@ -18,6 +18,9 @@ def table(rows):
 
 def render_reply(reply):
     """Escape all text, keep raw metadata secondary, link only actual Drive URLs."""
+    if reply.get('type') == 'accuracy':
+        from .accuracy import render_accuracy
+        return render_accuracy(reply)
     message = '<div style="white-space:pre-wrap">' + escape(str(reply.get('message', ''))) + '</div>'
     rows = []
     names = {'state':'Status', 'source':'Evidence source', 'observed_at':'Recorded at',

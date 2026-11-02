@@ -576,7 +576,8 @@ class MapUiTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.viewer.open.call_count,2)
         self.ui._action(lambda:(_ for _ in ()).throw(ValueError('Tile is outside the study area')))
         self.assertIn('outside the study area',self.ui.notice.value)
-        self.assertIsNone(self.ui.chat.selected_index)
+        self.assertIn(self.ui.chat,self.ui.widget.children)
+        self.assertEqual(type(self.ui.chat).__name__,'VBox')
 
     async def test_closed_workspace_closes_map_comm_and_null_view_does_not_affect_aoi(self):
         self.ui.connection.click();await asyncio.sleep(.02)

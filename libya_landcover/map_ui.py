@@ -75,9 +75,8 @@ class MapUI(ChatUI):
             button=w.Button(description=label)
             button.on_click(lambda _,text=message:self._action(lambda:assistant.say(text)))
             self.help_buttons.append(button)
-        self.chat=w.Accordion(children=[w.VBox([w.HTML('<p>Optional: ask about colours, progress, the selected tile, or another year. You can do every essential step with the buttons above.</p>'),
-            self.chat_mode,w.HBox(self.help_buttons),self.transcript,self.message,self.send])],selected_index=None)
-        self.chat.set_title(0,'Ask the assistant — optional help')
+        from .accuracy_chat import install_accuracy_chat
+        install_accuracy_chat(self)
         self.widget=w.VBox([w.HTML('<h2>Libya Land-Cover Assistant</h2><p>View the study-area map. Select the parts you need to download.</p>'),
             self.flow,self.next_step,self.step,self.connection_box,self.choices,self.mapping_review,self.activity,self.notice,
             self.progress,self.failure_panel,self.failure_report,self.auto_status,self.downloads,
@@ -110,6 +109,9 @@ class MapUI(ChatUI):
                 message='Your download is ready. Open the Drive link above.' if reply.get('state')=='completed' else 'Download status: '+reply.get('state','unknown')+'. Progress updates automatically.'
         body='<p style="white-space:pre-wrap">'+escape(str(message))+'</p>'
         details={k:v for k,v in reply.items() if k!='message'}
+        if not user and reply.get('type')=='accuracy':
+            from .accuracy import render_accuracy
+            body=render_accuracy(reply);details={}
         if details:body+='<details><summary>Details</summary><pre style="white-space:pre-wrap">'+escape(json.dumps(details,indent=2))+'</pre></details>'
         self.history.append('<div style="padding:8px;border-bottom:1px solid #ddd"><b>'+('You' if user else 'Assistant')+'</b>'+body+'</div>')
         self.history=self.history[-12:];self.transcript.value=''.join(self.history)
@@ -339,8 +341,13 @@ class MapUI(ChatUI):
     def _action(self,action):
         if self._busy or self._closed:return
         self._busy=True
+        local_accuracy=False
         def observed():
-            try:return action()
+            nonlocal local_accuracy
+            try:
+                reply=action()
+                local_accuracy=reply.get('type')=='accuracy'
+                return reply
             except Exception as exc:
                 display_error=isinstance(exc,MapDisplayError)
                 self.last_error={'observed_at':now(),'stage':exc.stage if display_error else 'interface_action',
@@ -352,7 +359,7 @@ class MapUI(ChatUI):
         try:super()._action(observed)
         finally:
             self._busy=False
-            if self._map_ready:
+            if self._map_ready and not local_accuracy:
                 self.sync();self._ensure_map()
                 self._poll_wake.set()
                 self._checkpoint()

@@ -11,18 +11,19 @@ import re
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-ACTIONS = ("mapping", "pilot", "status", "result", "jobs", "help", "clarify")
+ACTIONS = ("mapping", "pilot", "status", "result", "jobs", "help", "clarify", "accuracy")
 FIELDS = ("target_year", "aoi_asset", "training_asset")
 HELP = (
     "I can help you prepare a map, check progress, and find your download. "
     "Start here by connecting Google and choosing a year, or ask 'Prepare a map for Tripoli for 2024'. "
     "After map preparation, I can guide you to a small sample download. "
+    "Ask 'Model accuracy' to read the validation results already saved with your map. "
     "Whole-region downloads and area statistics are not available yet."
 )
 GUIDED_HELP = (
     "Chat is unavailable in this session, but the buttons above still work. "
     "Connect Google, choose a year, and click Review my map. "
-    "You can also type: map 2024, status, result, or help."
+    "You can also type: map 2024, status, result, accuracy, or help."
 )
 
 
@@ -32,6 +33,21 @@ class IntentError(ValueError):
 
 def intent(action, *, settings=None, job_id=None, question=None):
     return {"action": action, "settings": settings or {}, "job_id": job_id, "question": question}
+
+
+def accuracy_intent(text):
+    """Common read-only questions work even if the local language model is unavailable."""
+    clean = text.strip().lower().rstrip('?.!').replace('’', "'")
+    if re.fullmatch(r'how accurate is (?:my |the )?(?:map|model|classification)', clean):
+        return intent('accuracy')
+    command = re.fullmatch(r'/accuracy(?:\s+([0-9a-f-]{36}))?', clean)
+    if command:
+        return validate_intent(intent('accuracy', job_id=command[1]))
+    clean = re.sub(r"^(?:please\s+)?(?:what (?:is|are) |show (?:me )?|tell me |report )", '', clean)
+    clean = re.sub(r'^(?:the |my )', '', clean)
+    if re.fullmatch(r"(?:(?:saved |model |classification |overall |per.class |class |producer'?s? |user'?s? )?accuracy(?: (?:of|for) (?:my |the )?(?:map|model|classification|selected tile))?|accuracy (?:by|per) class|confusion matrix|kappa(?: coefficient)?|validation (?:results|metrics))", clean):
+        return intent('accuracy')
+    return None
 
 
 def validate_intent(value):
@@ -61,6 +77,9 @@ class GuidedParser:
     label = "Guided commands · no language model or API"
 
     def parse(self, text, context):
+        accuracy = accuracy_intent(text)
+        if accuracy:
+            return accuracy
         text = text.strip().translate(str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩", "01234567890123456789"))
         match = re.fullmatch(r"/?(?:map|نقشه)\s+(\d{4})", text, re.I)
         if match:
@@ -102,6 +121,8 @@ default profile. For any other named location without an explicit AOI AND traini
 asset, clarify and ask for both asset paths; never invent an asset or use Tripoli.
 pilot proposes one 1024x1024 pixel export from an existing completed mapping.
 status/result/jobs read existing records. An omitted job_id means selected job.
+accuracy reads existing model validation metrics, per-class accuracy and the confusion
+matrix from the selected map's saved result. It never runs a new evaluation.
 Only copy an explicit canonical UUID from the user; never invent one.
 For unsupported changes to model parameters, full-region export, class-area or
 change statistics, choose clarify and briefly explain that this MVP cannot do it.

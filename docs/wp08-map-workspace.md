@@ -1,5 +1,36 @@
 # WP08 — Map workspace
 
+## Saved accuracy in the assistant (0.10.0)
+
+The visible **Ask the assistant** panel now has a **Model accuracy** button. You can also ask
+**What is the classification accuracy?**, **Show confusion matrix**, or **Accuracy by class**.
+These questions read the selected map's checked, saved result. When a download is selected,
+the report uses that download's parent mapping; it does not claim a new evaluation of the tile.
+
+The report shows recorded overall accuracy, Kappa, validation sample count and producer accuracy.
+User accuracy is derived locally from the saved confusion matrix with the existing contract's
+class-table formula. The matrix, class codes, year, source run and recorded time remain available.
+Missing measures or absent predicted samples are labelled **Not available**. If preparation is
+unfinished or its saved result cannot be verified, the assistant reports that without making up
+numbers or starting an evaluation. Reading accuracy preserves the selected tile, export and
+pending review. It needs no Earth Engine authentication, API request, inference or extra compute.
+Existing background map display and export monitoring continue as before. Class-area analysis
+has not been added.
+
+Existing mapping ZIPs, pilot ZIPs and all-work ZIPs already contain the necessary result.
+The single-cell notebook below includes this capability. For an already-open 0.9.1 workspace,
+`python/update_accuracy.py` installs the pinned update in place: it first saves/downloads
+`landcover-before-accuracy.zip`, then upgrades only the assistant methods and chat panel.
+It retains the exact map widget, layers, controls, store, job IDs, parser weights, connection,
+selection, pending review and history. It does not remount the map, submit work or request a tile.
+The old generic workspace updater and display-repair helper are not needed for this update.
+
+Verification covers saved values, nulls, local per-class formatting, English questions and the
+button, pending-review preservation, legacy ZIP restoration and in-place/notebook upgrades.
+Tests block network and credential discovery, and mock installation. They do not claim a live
+check in the user's Colab session or a new validation of classifier accuracy. Reference GEE,
+Python engine, adapter, contracts, map backend and export implementation are unchanged.
+
 ## User path
 
 Open [the single-cell Colab](https://colab.research.google.com/github/hamedsabzchi/libya-automated-land-cover-mapping/blob/feat/wp08-map-workspace/python/08_wp08_map_workspace.ipynb) and click **Start assistant**. Installation and the first local chat-model download take time. No API key is needed.

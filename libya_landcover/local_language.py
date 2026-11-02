@@ -7,19 +7,21 @@ model downloads public files; subsequent inference runs on the current CPU/GPU.
 import json
 import re
 
-from .chat_language import GuidedParser, IntentError, intent, validate_intent
+from .chat_language import GuidedParser, IntentError, intent, validate_intent, accuracy_intent
 
 MODEL_ID = "Qwen/Qwen2.5-1.5B-Instruct"
 MODEL_REVISION = "989aa7980e4cf806f80c7fef2b1adb7bc71aa306"
 SYSTEM = """You interpret English requests for a land-cover mapping application.
 Return exactly one JSON object, no markdown or commentary:
 {"action":"help","settings":{},"job_id":null,"question":null}
-Allowed actions: mapping, pilot, status, result, jobs, help, clarify.
+Allowed actions: mapping, pilot, status, result, jobs, help, clarify, accuracy.
 - mapping: prepare a new mapping request or edit the pending request. settings
   contains ONLY explicit changes to target_year (integer), aoi_asset or training_asset.
   Do not copy defaults into settings. Never invent an asset path.
 - status: progress/state of the selected job. result: its available outputs/download.
 - jobs: list jobs. pilot: propose a SMALL export from a completed mapping.
+- accuracy: read saved overall accuracy, Kappa, per-class accuracy or confusion matrix
+  for the selected map. No new evaluation. Use this for questions about model accuracy.
 - help: greetings or supported capabilities. clarify: ask one short English question
   when information is missing, or explain an unsupported request.
 Use the active profile and pending_request supplied in context. 'Change the year'
@@ -42,6 +44,8 @@ User: Change the year to 2023.
 Output: {"action":"mapping","settings":{"target_year":2023},"job_id":null,"question":null}
 User: Has my export finished?
 Output: {"action":"status","settings":{},"job_id":null,"question":null}
+User: How accurate is my classification?
+Output: {"action":"accuracy","settings":{},"job_id":null,"question":null}
 User: Where can I download the result?
 Output: {"action":"result","settings":{},"job_id":null,"question":null}
 User: Prepare a map for Benghazi.
@@ -91,6 +95,9 @@ class LocalParser:
     def parse(self, text, context):
         if not isinstance(text, str) or not text.strip() or len(text) > 4000:
             raise IntentError("Please enter a message of 1–4000 characters.")
+        accuracy = accuracy_intent(text)
+        if accuracy:
+            return accuracy
         # Explicit commands remain available without waiting for model generation.
         if re.fullmatch(r"/?(?:help|jobs|status|result|pilot)(?:\s+[0-9a-f-]{36})?", text.strip(), re.I) or text.strip().startswith("/map "):
             return GuidedParser().parse(text, context)
