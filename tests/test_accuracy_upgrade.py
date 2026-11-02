@@ -44,7 +44,7 @@ async def exercise():
         ui.message.value = 'keep unfinished message'
         old_chat = ui.chat; ui.chat = Accordion(children=[VBox(old_chat.children)],selected_index=None)
         ui.widget.children = tuple(ui.chat if w is old_chat else w for w in ui.widget.children)
-        libya_landcover.__version__ = '0.9.1'
+        libya_landcover.__version__ = '0.10.0'
         original = (ui.map, ui.map.comm, ui.raster, ui.raster.url, ui.map.layers, ui.grid, ui.highlight,
                     ui.map_slot, ui.tile_action, ui.downloads, a.store, a.before_live, a.launcher,
                     a.selected, a.pending, a.tile, a.store.list(), list(ui.history), ui.message.value)
@@ -58,7 +58,7 @@ async def exercise():
             ns={'ui':ui,'assistant':a,'local_parser':a.parser}
             with patch.dict(sys.modules,{'google.colab':colab}), patch('IPython.display.display',display), \
                  patch('IPython.display.clear_output'), patch('subprocess.run',install), \
-                 patch('importlib.metadata.version',side_effect=lambda name:'2.6.0' if name=='torch' else '0.10.0'):
+                 patch('importlib.metadata.version',side_effect=lambda name:'2.6.0' if name=='torch' else '0.10.1'):
                 exec(code.replace('/content/',folder+'/'),ns)
             assert ns['ui'] is ui and ns['assistant'] is a
         else:
@@ -79,6 +79,10 @@ async def exercise():
             assert a.parser._generate is generate
             ui.accuracy_button.click()
             assert 'Saved model accuracy' in ui.transcript.value
+            ui.explain_accuracy_button.click()
+            assert 'Accuracy explained' in ui.transcript.value
+            ui.message.value='What does producer accuracy mean?'; ui.send.click()
+            assert 'reference row total' in ui.transcript.value
             assert original[14]==a.pending and original[16]==a.store.list()
         else: assert a.say('classification accuracy')['message']=='old chat'
         a.launcher.assert_not_called(); generate.assert_not_called()

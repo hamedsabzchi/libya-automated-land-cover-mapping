@@ -4,7 +4,7 @@ import importlib
 import subprocess
 import sys
 
-SERVICE_COMMIT = "f6daf0d45685e4f4cf716e6ea9c4be2633fecc29"
+SERVICE_COMMIT = "47a56b0325b3b1993940e5ee4efd8fe37d9a0b8d"
 
 
 async def update_accuracy(previous):
@@ -20,7 +20,7 @@ async def update_accuracy(previous):
         from libya_landcover.workspace import save_workspace
         backup = save_workspace(previous.assistant, previous.assistant.store.root / 'landcover-before-accuracy.zip',
                                 history=previous.history)
-        print('Your saved work is backed up. Adding saved model accuracy to the assistant…')
+        print('Your saved work is backed up. Adding accuracy explanations to the assistant…')
         if previous.download:
             previous.download(str(backup))
         log = previous.assistant.store.root / 'accuracy-update.log'
@@ -33,17 +33,17 @@ async def update_accuracy(previous):
             raise RuntimeError('The update could not install. Your current workspace and backup are retained.')
         importlib.invalidate_caches()
         # Retain map, export, engine, credentials, model weights and polling modules.
-        for name in ('chat_language', 'local_language', 'accuracy', 'assistant', 'map_assistant',
+        for name in ('accuracy_explanation', 'chat_language', 'local_language', 'accuracy', 'assistant', 'map_assistant',
                      'chat_ui', 'accuracy_chat', 'map_ui'):
             importlib.reload(importlib.import_module('libya_landcover.' + name))
         from libya_landcover.accuracy_chat import upgrade_accuracy_chat
         upgrade_accuracy_chat(previous)
         import libya_landcover
-        libya_landcover.__version__ = '0.10.0'
+        libya_landcover.__version__ = '0.10.1'
         from IPython.display import display
         # Also show the same chat panel in this cell; the existing map stays mounted.
         display(previous.chat)
-        print('Ready. Click Model accuracy. Your map, selection and downloads are unchanged.')
+        print('Ready. Click Explain accuracy or ask about a class. Your map, selection and downloads are unchanged.')
         return previous
     except Exception:
         previous.__class__, previous.assistant.__class__ = old_ui_class, old_assistant_class

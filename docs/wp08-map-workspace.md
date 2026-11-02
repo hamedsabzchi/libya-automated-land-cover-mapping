@@ -1,5 +1,27 @@
 # WP08 — Map workspace
 
+## Explain saved accuracy (0.10.1)
+
+**Model accuracy** keeps the full saved report. **Explain accuracy** or **Interpret accuracy**
+returns a short English explanation, with the original tables and source retained below it.
+Ask **Explain the accuracy of cultivated irrigated land**, **Which classes are most often
+confused?**, **What does producer accuracy mean?**, or **Explain Kappa**. Explicit follow-ups
+such as **What about orchards?** refer to that class in the currently selected map.
+
+Answers are constructed from the checked saved metrics and confusion matrix. Common questions
+bypass model inference; other paraphrases can use the existing local intent parser. Model output
+is never used as a source of numbers or causes. Confusion pairs combine both directions and
+include ties at the third pair. Counts are validation samples, not areas. Unknown classes,
+other years and missing data receive bounded responses; causes are not inferred from counts.
+
+No Earth Engine requests, new evaluation, area computation or paid inference were added. The
+map/export workflow, GEE reference, engine, adapter and contracts are unchanged. The pinned
+notebook and in-place updater retain current map widgets, choices, downloads and loaded weights.
+The updater saves/downloads a work ZIP first. Offline tests exercise the supplied aggregate
+validation counts, distinct questions, both buttons and preservation during upgrades. Live
+Colab behavior still requires user-side confirmation.
+
+
 ## Saved accuracy in the assistant (0.10.0)
 
 The visible **Ask the assistant** panel now has a **Model accuracy** button. You can also ask
