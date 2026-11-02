@@ -18,6 +18,7 @@ HELP = (
     "Start here by connecting Google and choosing a year, or ask 'Prepare a map for Tripoli for 2024'. "
     "After map preparation, I can guide you to a small sample download. "
     "Ask 'Model accuracy' to read the validation results already saved with your map. "
+    "Ask 'Interpret accuracy', name a class, or ask which classes are confused for an explanation. "
     "Whole-region downloads and area statistics are not available yet."
 )
 GUIDED_HELP = (
@@ -43,6 +44,9 @@ def accuracy_intent(text):
     command = re.fullmatch(r'/accuracy(?:\s+([0-9a-f-]{36}))?', clean)
     if command:
         return validate_intent(intent('accuracy', job_id=command[1]))
+    from .accuracy_explanation import is_accuracy_question
+    if is_accuracy_question(text):
+        return intent('accuracy')
     clean = re.sub(r"^(?:please\s+)?(?:what (?:is|are) |show (?:me )?|tell me |report )", '', clean)
     clean = re.sub(r'^(?:the |my )', '', clean)
     if re.fullmatch(r"(?:(?:saved |model |classification |overall |per.class |class |producer'?s? |user'?s? )?accuracy(?: (?:of|for) (?:my |the )?(?:map|model|classification|selected tile))?|accuracy (?:by|per) class|confusion matrix|kappa(?: coefficient)?|validation (?:results|metrics))", clean):
@@ -123,6 +127,7 @@ pilot proposes one 1024x1024 pixel export from an existing completed mapping.
 status/result/jobs read existing records. An omitted job_id means selected job.
 accuracy reads existing model validation metrics, per-class accuracy and the confusion
 matrix from the selected map's saved result. It never runs a new evaluation.
+Use accuracy also for interpreting those results, explaining definitions or class confusions.
 Only copy an explicit canonical UUID from the user; never invent one.
 For unsupported changes to model parameters, full-region export, class-area or
 change statistics, choose clarify and briefly explain that this MVP cannot do it.

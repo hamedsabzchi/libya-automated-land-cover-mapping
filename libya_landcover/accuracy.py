@@ -42,6 +42,18 @@ def saved_accuracy(store, job_id):
 
 
 def render_accuracy(reply):
+    explanation = reply.get('explanation')
+    if explanation:
+        from .chat_ui import area_name
+        title = (explanation['title'] + ' · ' + area_name(reply['request']) +
+                 ' · ' + str(reply['request']['target_year']))
+        body = '<h4>' + escape(title) + '</h4>'
+        body += ''.join('<p>' + escape(str(p)) + '</p>' for p in explanation['paragraphs'])
+        body += '<p><small>Source: this map\'s saved model validation. No new Earth Engine calculation. '
+        body += 'This is not a separate accuracy assessment of the selected tile.</small></p>'
+        original = {k: v for k, v in reply.items() if k != 'explanation'}
+        return body + '<details><summary>View saved accuracy tables and source</summary>' + render_accuracy(original) + '</details>'
+
     def cell(value):
         return escape(str(value))
 

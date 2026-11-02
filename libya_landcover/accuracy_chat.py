@@ -7,11 +7,18 @@ def install_accuracy_chat(ui):
     button = w.Button(description='Model accuracy', icon='table', layout=w.Layout(width='170px'))
     button.on_click(lambda _: ui._action(ui.assistant.accuracy))
     ui.accuracy_button = button
+    explain = w.Button(description='Explain accuracy', icon='comment', layout=w.Layout(width='170px'))
+    explain.on_click(lambda _: ui._action(lambda: ui.assistant.accuracy(question='Interpret accuracy')))
+    ui.explain_accuracy_button = explain
     ui.chat = w.VBox([
-        w.HTML('<h3>Ask the assistant</h3><p>Click <b>Model accuracy</b> or ask '
-               '<b>What is the classification accuracy?</b> to read saved validation results. '
-               'No new Earth Engine calculation is needed. You can also ask about colours, progress or another year.</p>'),
-        ui.chat_mode, w.HBox([button, *ui.help_buttons], layout=w.Layout(flex_flow='row wrap')),
+        w.HTML('<h3>Ask the assistant</h3><p><b>Model accuracy</b> shows the saved tables. '
+               '<b>Explain accuracy</b> gives a short explanation. You can ask '
+               '<i>Explain the accuracy of cultivated irrigated land</i>, '
+               '<i>Which classes are most often confused?</i> or '
+               '<i>What does producer accuracy mean?</i> '
+               'These answers use saved validation results and need no new Earth Engine calculation. '
+               'You can still ask about colours, progress or another year.</p>'),
+        ui.chat_mode, w.HBox([button, explain, *ui.help_buttons], layout=w.Layout(flex_flow='row wrap')),
         ui.transcript, ui.message, ui.send])
     if old_chat is not None and hasattr(ui, 'widget'):
         ui.widget.children = tuple(ui.chat if child is old_chat else child for child in ui.widget.children)

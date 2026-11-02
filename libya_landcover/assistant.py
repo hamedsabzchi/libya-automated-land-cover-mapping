@@ -126,7 +126,7 @@ class Assistant:
             raise
         action = parsed["action"]
         if action == "accuracy":
-            return self.accuracy(parsed["job_id"])
+            return self.accuracy(parsed["job_id"], question=text)
         self.discard()
         self.clarification = None
         if action == "mapping":
@@ -145,10 +145,11 @@ class Assistant:
             return {"type": "clarify", "message": parsed["question"] or HELP}
         return {"type": "help", "message": GUIDED_HELP if isinstance(self.parser, GuidedParser) else HELP}
 
-    def accuracy(self, job_id=None):
+    def accuracy(self, job_id=None, *, question=None):
         """Local saved-result read; never select another job or call before_live."""
         from .accuracy import saved_accuracy
-        return saved_accuracy(self.store, job_id or self.selected)
+        from .accuracy_explanation import explain_saved_accuracy
+        return explain_saved_accuracy(saved_accuracy(self.store, job_id or self.selected), question)
 
     def confirm(self, draft_id):
         with self.store.lock("assistant-confirm"):
