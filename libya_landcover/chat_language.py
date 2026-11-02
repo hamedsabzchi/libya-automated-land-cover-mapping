@@ -12,7 +12,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 ACTIONS = ("mapping", "pilot", "status", "result", "jobs", "help", "clarify", "accuracy")
-FIELDS = ("target_year", "aoi_asset", "training_asset")
+FIELDS = ("target_year", "fallback_year", "aoi_asset", "training_asset")
 HELP = (
     "I can help you prepare a map, check progress, and find your download. "
     "Start here by connecting Google and choosing a year, or ask 'Prepare a map for Tripoli for 2024'. "
@@ -60,9 +60,9 @@ def validate_intent(value):
     if value["action"] not in ACTIONS or not isinstance(value["settings"], dict):
         raise IntentError("Unsupported intent")
     if set(value["settings"]) - set(FIELDS):
-        raise IntentError("Only year, AOI and training asset can be proposed in chat")
+        raise IntentError("Only target year, fallback year, AOI and training asset can be proposed in chat")
     for key, item in value["settings"].items():
-        if key == "target_year":
+        if key in {"target_year", "fallback_year"}:
             if type(item) is not int:
                 raise IntentError("Year must be an integer")
         elif not isinstance(item, str) or not item or len(item) > 1024:
@@ -77,6 +77,21 @@ def validate_intent(value):
     return value
 
 
+def year_intent(text):
+    """Explicit year edits do not depend on a language model; never execute work."""
+    text = text.strip().lower().rstrip('.!').translate(str.maketrans('۰۱۲۳۴۵۶۷۸۹', '0123456789'))
+    match = re.fullmatch(r'(?:(?:change|set|use)\s+)?(?:the\s+)?(?:fallback|backfall)(?:\s+year)?\s*(?:to|=)?\s*(\d{4})', text)
+    if match:
+        return intent('mapping', settings={'fallback_year':int(match[1])})
+    match = re.fullmatch(r'(?:(?:change|set|use)\s+)?(?:the\s+)?(?:target\s+)?year\s*(?:to|=)?\s*(\d{4})(?:\s+(?:and|with)\s+(?:the\s+)?fallback(?:\s+year)?\s*(?:to|=)?\s*(\d{4}))?', text)
+    if match:
+        return intent('mapping', settings={'target_year':int(match[1]), **({'fallback_year':int(match[2])} if match[2] else {})})
+    match = re.fullmatch(r'(?:map|prepare (?:a )?(?:land.cover )?map)(?: for tripoli)?(?: for)?\s+(\d{4})\s+with\s+(?:a )?fallback(?: year)?\s*(?:of|=)?\s*(\d{4})', text)
+    if match:
+        return intent('mapping', settings={'target_year':int(match[1]), 'fallback_year':int(match[2])})
+    return None
+
+
 class GuidedParser:
     label = "Guided commands · no language model or API"
 
@@ -84,6 +99,9 @@ class GuidedParser:
         accuracy = accuracy_intent(text)
         if accuracy:
             return accuracy
+        years = year_intent(text)
+        if years:
+            return years
         text = text.strip().translate(str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩", "01234567890123456789"))
         match = re.fullmatch(r"/?(?:map|نقشه)\s+(\d{4})", text, re.I)
         if match:
@@ -109,16 +127,19 @@ SCHEMA = {
     "properties": {
         "action": {"type": "string", "enum": list(ACTIONS)},
         "target_year": {"type": ["integer", "null"]},
+        "fallback_year": {"type": ["integer", "null"]},
         "aoi_asset": {"type": ["string", "null"]},
         "training_asset": {"type": ["string", "null"]},
         "job_id": {"type": ["string", "null"]},
         "question": {"type": ["string", "null"]},
     },
-    "required": ["action", "target_year", "aoi_asset", "training_asset", "job_id", "question"],
+    "required": ["action", "target_year", "fallback_year", "aoi_asset", "training_asset", "job_id", "question"],
 }
 INSTRUCTIONS = """Parse a Persian or English request for this bounded land-cover assistant.
 Return an intent, never execute, confirm, write code, or claim results.
-mapping proposes the reference model with only target_year/AOI/training changes.
+mapping proposes the reference model with only target_year/fallback_year/AOI/training changes.
+Both years must be explicitly requested. Changing one must preserve the other;
+never automatically choose a previous year as the fallback.
 Use the supplied active or pending settings for follow-up requests; return only
 explicit changes. Tripoli is the only named region whose assets are known in the
 default profile. For any other named location without an explicit AOI AND training

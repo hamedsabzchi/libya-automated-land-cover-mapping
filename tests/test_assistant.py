@@ -183,7 +183,7 @@ class AssistantTests(unittest.TestCase):
 
 class LanguageTests(unittest.TestCase):
     def response(self, **changes):
-        value = {"action": "mapping", "target_year": 2024, "aoi_asset": None,
+        value = {"action": "mapping", "target_year": 2024, "fallback_year": None, "aoi_asset": None,
                  "training_asset": None, "job_id": None, "question": None, **changes}
         return {"status": "completed", "output": [{"type": "message", "content": [
             {"type": "output_text", "text": json.dumps(value)}]}]}
@@ -215,7 +215,7 @@ class LanguageTests(unittest.TestCase):
                                         intent("mapping", settings={"target_year": 2023})]
             assistant = Assistant(JobStore(root), engine_commit="a" * 40, parser=parser)
             first = assistant.say("map this AOI")
-            second = assistant.say("change year to 2023")
+            second = assistant.say("Please prepare it for 2023")
             self.assertEqual(second["settings"]["request"]["aoi_asset"], "projects/demo/assets/a")
             self.assertEqual(second["settings"]["request"]["target_year"], 2023)
             self.assertEqual(parser.parse.call_args.args[1]["pending_request"], first["settings"]["request"])

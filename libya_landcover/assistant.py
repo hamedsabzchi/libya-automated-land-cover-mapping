@@ -87,12 +87,30 @@ class Assistant:
 
     def prepare_mapping(self, settings=None):
         """The form and chat use the same validation/confirmation boundary."""
+        defaults = self.request_defaults()
         self.discard()
         parsed = validate_intent({"action": "mapping", "settings": settings or {}, "job_id": None, "question": None})
-        request = RunRequest({**{k: v for k, v in self.profile.items() if k != "project"},
+        request = RunRequest({**defaults,
                               **parsed["settings"], "request_id": str(uuid4())})
         return self._draft({"action": "mapping", "project": self.profile["project"],
             "engine_commit": self.engine_commit, "request": request.to_dict()})
+
+    def request_defaults(self):
+        """Keep the current request's data/settings when proposing another year."""
+        if self.pending:
+            draft = self.store.get(self.pending)
+            if draft['state'] == 'prepared' and draft['inputs']['action'] == 'mapping':
+                return dict(draft['inputs']['request'])
+        if self.selected:
+            job = self.store.get(self.selected)
+            if job['kind'] in {'export', 'assistant_snapshot'}:
+                job = self.store.get(job['inputs']['mapping_job_id'])
+            if job['kind'] == 'mapping':
+                if job['state'] == 'completed':
+                    return checked_mapping_bundle(self.store, job)['request'].to_dict()
+                if job['inputs'].get('request'):
+                    return dict(job['inputs']['request'])
+        return {k: v for k, v in self.profile.items() if k != 'project'}
 
     def prepare_pilot(self, job_id=None):
         self.discard()
@@ -111,7 +129,11 @@ class Assistant:
     def say(self, text):
         if not isinstance(text, str) or not text.strip() or len(text) > 4000:
             raise IntentError("Message must contain 1–4000 characters")
-        context = {"active_profile": self.profile, "pending_request": None,
+        accuracy = accuracy_intent(text)
+        if accuracy:
+            return self.accuracy(accuracy['job_id'], question=text)
+        defaults = self.request_defaults()
+        context = {"active_profile": {**self.profile, **defaults}, "pending_request": None,
                    "previous_clarification": self.clarification}
         if self.pending:
             old = self.store.get(self.pending)
@@ -120,7 +142,8 @@ class Assistant:
         # Reading saved accuracy preserves the current selection and pending review.
         # Other messages, including parse errors, keep the existing expiry behavior.
         try:
-            parsed = validate_intent(accuracy_intent(text) or self.parser.parse(text, context))
+            from .chat_language import year_intent
+            parsed = validate_intent(accuracy_intent(text) or year_intent(text) or self.parser.parse(text, context))
         except Exception:
             self.discard()
             raise
@@ -130,7 +153,7 @@ class Assistant:
         self.discard()
         self.clarification = None
         if action == "mapping":
-            settings = context["pending_request"] or {k: v for k, v in self.profile.items() if k != "project"}
+            settings = context["pending_request"] or defaults
             request = RunRequest({**settings, **parsed["settings"], "request_id": str(uuid4())})
             return self._draft({"action": "mapping", "project": self.profile["project"],
                 "engine_commit": self.engine_commit, "request": request.to_dict()})

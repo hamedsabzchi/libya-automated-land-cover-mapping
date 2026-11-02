@@ -145,7 +145,10 @@ class MapUI(ChatUI):
         self._visible(self.legend,self.map_data is not None)
         self._visible(self.tile_action,not failed)
         self._visible(self.refresh,bool(self.assistant.selected)) # Never hide progress behind another preview.
-        self._visible(self.choices,self.live_ready and not self.assistant.pending and not mapping)
+        self._visible(self.choices,self.live_ready)
+        mapping_draft=bool(self.assistant.pending and self.assistant.store.get(self.assistant.pending)['inputs']['action']=='mapping')
+        self._visible(self.prepare,not mapping_draft)
+        self.prepare.disabled=self._busy or any(j['state'] in {'queued','running'} for j in self.assistant.jobs() if j['kind']=='mapping')
         self._visible(self.backup,ready)
         self._visible(self.new,bool(mapping and mapping['state'] in {'completed','failed','interrupted'}) and not self.assistant.pending)
         stage=1 if not self.live_ready else (3 if self.map_data else 2)
@@ -165,7 +168,7 @@ class MapUI(ChatUI):
             review_slot=self.mapping_review if data['action']=='mapping' else self.download_review
             review_slot.children=(self.review_box,)
             if data['action']=='mapping':
-                self.preview.value='<h3>Ready to create your map?</h3>'+table([('Region',area_name(data['request'])),('Year',data['request']['target_year']),('Result','Study-area map with a legend and selectable download tiles')])
+                self.preview.value='<h3>Ready to create your map?</h3>'+table([('Region',area_name(data['request'])),('Target year',data['request']['target_year']),('Fallback year',data['request']['fallback_year']),('Result','Study-area map with a legend and selectable download tiles')])
                 self.confirm.description='Create map'
             else:
                 w=data['plan']['spec']['pixel_window']
@@ -322,7 +325,7 @@ class MapUI(ChatUI):
         self.sync()
 
     def _create_map(self):
-        draft=self.assistant.prepare_mapping({'target_year':self.year.value})
+        draft=self.assistant.prepare_mapping({'target_year':self.year.value,'fallback_year':self.fallback_year.value})
         return self.assistant.confirm(draft['draft_id']) if draft.get('type')=='preview' else draft
 
     def _download_tile(self):
@@ -418,7 +421,10 @@ class MapUI(ChatUI):
         if not text:return
         self.message.value='';self.add({'message':text},user=True)
         def action():
-            reply=self.assistant.say(text)
+            from .chat_language import year_intent
+            years=year_intent(text)
+            reply=(self.assistant.prepare_mapping({'target_year':self.year.value,
+                'fallback_year':self.fallback_year.value,**years['settings']}) if years else self.assistant.say(text))
             return self._open_map() if reply.get('type')=='show_map' else reply
         self._action(action)
 
@@ -575,6 +581,9 @@ def restore_live_workspace(previous):
         fresh.year.unobserve(fresh._change_year,names='value')
         fresh.year.value=previous.year.value
         fresh.year.observe(fresh._change_year,names='value')
+        fresh.fallback_year.unobserve(fresh._change_year,names='value')
+        fresh.fallback_year.value=getattr(previous,'fallback_year',fresh.fallback_year).value
+        fresh.fallback_year.observe(fresh._change_year,names='value')
         fresh.grid_toggle.value=previous.grid_toggle.value
         fresh.message.value=previous.message.value
         if previous.map_data:fresh._install_map(previous.map_data,preserve_selection=True)

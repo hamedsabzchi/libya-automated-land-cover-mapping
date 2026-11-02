@@ -43,5 +43,7 @@ def upgrade_accuracy_chat(ui):
         assistant.parser = GuidedParser()
     assistant.__class__ = MapAssistant
     ui.__class__ = MapUI
+    from .year_controls import install_year_controls
+    install_year_controls(ui)
     install_accuracy_chat(ui)
     return ui

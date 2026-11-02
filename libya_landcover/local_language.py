@@ -7,7 +7,7 @@ model downloads public files; subsequent inference runs on the current CPU/GPU.
 import json
 import re
 
-from .chat_language import GuidedParser, IntentError, intent, validate_intent, accuracy_intent
+from .chat_language import GuidedParser, IntentError, intent, validate_intent, accuracy_intent, year_intent
 
 MODEL_ID = "Qwen/Qwen2.5-1.5B-Instruct"
 MODEL_REVISION = "989aa7980e4cf806f80c7fef2b1adb7bc71aa306"
@@ -16,7 +16,8 @@ Return exactly one JSON object, no markdown or commentary:
 {"action":"help","settings":{},"job_id":null,"question":null}
 Allowed actions: mapping, pilot, status, result, jobs, help, clarify, accuracy.
 - mapping: prepare a new mapping request or edit the pending request. settings
-  contains ONLY explicit changes to target_year (integer), aoi_asset or training_asset.
+  contains ONLY explicit changes to target_year or fallback_year (integers), aoi_asset or training_asset.
+  Preserve the other year when only one is changed. Never invent a fallback year.
   Do not copy defaults into settings. Never invent an asset path.
 - status: progress/state of the selected job. result: its available outputs/download.
 - jobs: list jobs. pilot: propose a SMALL export from a completed mapping.
@@ -45,6 +46,8 @@ User: Prepare a land-cover map for Tripoli for 2024.
 Output: {"action":"mapping","settings":{"target_year":2024},"job_id":null,"question":null}
 User: Change the year to 2023.
 Output: {"action":"mapping","settings":{"target_year":2023},"job_id":null,"question":null}
+User: Set the fallback year to 2022.
+Output: {"action":"mapping","settings":{"fallback_year":2022},"job_id":null,"question":null}
 User: Has my export finished?
 Output: {"action":"status","settings":{},"job_id":null,"question":null}
 User: How accurate is my classification?
@@ -101,6 +104,9 @@ class LocalParser:
         accuracy = accuracy_intent(text)
         if accuracy:
             return accuracy
+        years = year_intent(text)
+        if years:
+            return years
         # Explicit commands remain available without waiting for model generation.
         if re.fullmatch(r"/?(?:help|jobs|status|result|pilot)(?:\s+[0-9a-f-]{36})?", text.strip(), re.I) or text.strip().startswith("/map "):
             return GuidedParser().parse(text, context)
@@ -121,8 +127,9 @@ class LocalParser:
             for key in ("aoi_asset", "training_asset"):
                 if key in parsed["settings"] and parsed["settings"][key] not in grounded_text:
                     raise ValueError("Ungrounded asset path")
-            if "target_year" in parsed["settings"] and str(parsed["settings"]["target_year"]) not in text:
-                raise ValueError("Ungrounded year")
+            for field in ('target_year', 'fallback_year'):
+                if field in parsed['settings'] and str(parsed['settings'][field]) not in text:
+                    raise ValueError('Ungrounded year')
             if parsed["action"] == "clarify" and not parsed["question"]:
                 raise ValueError("Missing question")
             return parsed

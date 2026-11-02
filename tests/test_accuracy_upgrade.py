@@ -19,7 +19,7 @@ from libya_landcover.map_view import tile_spec
 from libya_landcover.pilot import create_pilot
 import libya_landcover
 from ipyleaflet import TileLayer
-from ipywidgets import Accordion, VBox
+from ipywidgets import Accordion, VBox, HBox
 
 async def exercise():
     with tempfile.TemporaryDirectory() as folder:
@@ -44,7 +44,10 @@ async def exercise():
         ui.message.value = 'keep unfinished message'
         old_chat = ui.chat; ui.chat = Accordion(children=[VBox(old_chat.children)],selected_index=None)
         ui.widget.children = tuple(ui.chat if w is old_chat else w for w in ui.widget.children)
-        libya_landcover.__version__ = '0.10.0'
+        # Simulate 0.10.1, which had no fallback widget.
+        ui.fallback_year.close(); del ui.fallback_year
+        ui.choices.children=(ui.choices.children[0],HBox([ui.region,ui.year]),ui.prepare)
+        libya_landcover.__version__ = '0.10.1'
         original = (ui.map, ui.map.comm, ui.raster, ui.raster.url, ui.map.layers, ui.grid, ui.highlight,
                     ui.map_slot, ui.tile_action, ui.downloads, a.store, a.before_live, a.launcher,
                     a.selected, a.pending, a.tile, a.store.list(), list(ui.history), ui.message.value)
@@ -58,7 +61,7 @@ async def exercise():
             ns={'ui':ui,'assistant':a,'local_parser':a.parser}
             with patch.dict(sys.modules,{'google.colab':colab}), patch('IPython.display.display',display), \
                  patch('IPython.display.clear_output'), patch('subprocess.run',install), \
-                 patch('importlib.metadata.version',side_effect=lambda name:'2.6.0' if name=='torch' else '0.10.1'):
+                 patch('importlib.metadata.version',side_effect=lambda name:'2.6.0' if name=='torch' else '0.11.0'):
                 exec(code.replace('/content/',folder+'/'),ns)
             assert ns['ui'] is ui and ns['assistant'] is a
         else:
@@ -75,6 +78,8 @@ async def exercise():
                             a.selected, a.pending, a.tile, a.store.list(), list(ui.history), ui.message.value)
         assert not ui._busy and not ui._closed
         if sys.argv[1]!='failure':
+            assert ui.fallback_year.value==2023 and ui.year.value==2024
+            assert ui.choices.layout.display==''
             assert a.say('classification accuracy')['metrics']['overall']==1.0  # Offline fixture ONLY.
             assert a.parser._generate is generate
             ui.accuracy_button.click()

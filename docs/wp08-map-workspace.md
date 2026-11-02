@@ -1,5 +1,33 @@
 # WP08 — Map workspace
 
+## Target and fallback years (0.11.0)
+
+The earlier interface hid its year selector after a map was selected and did not expose
+the engine's fallback year. **Map settings for your next run** now stays visible above
+the map after connecting Google. Choose **Target year** and **Fallback year**, then click
+**Create map** once. Changing a dropdown does not submit work, modify a saved request,
+clear the current map or cancel downloads. A new run is needed to compute different years;
+existing completed maps and export records remain saved. While another mapping is queued
+or running, the new-run button stays disabled. Exports can continue to be tracked.
+
+Both controls use the existing Python request contract's 2017–2024 range. The fallback
+fills missing target-year embedding data according to the unchanged reference engine.
+It is independent of the target year and is never silently changed to target minus one.
+
+Chat also accepts **Set target year to 2023 and fallback year to 2022**, **Set fallback year
+to 2022**, or **map 2023 with fallback 2022**. Chat prepares a review; it never executes the
+new map. Both years are displayed in that review and synchronized with the controls.
+Editing either dropdown invalidates an older review. Explicit year edits bypass inference;
+paraphrases can use the existing local parser. Existing map data/settings are carried forward
+when proposing another year. Model parameter overrides remain disallowed.
+
+The single-cell notebook and in-place updater include these controls. The updater retains
+the same map widgets, store, selected tile, downloads, chat weights and pending review,
+and saves a work ZIP first. No reference GEE, Python engine, adapter, contract, map backend
+or export implementation is changed. Offline tests cover request forwarding, chat/form
+synchronization, duplicate prevention, preserved results, validation limits and upgrades.
+Live Colab and new-year engine execution remain user-side checks.
+
 ## Explain saved accuracy (0.10.1)
 
 **Model accuracy** keeps the full saved report. **Explain accuracy** or **Interpret accuracy**

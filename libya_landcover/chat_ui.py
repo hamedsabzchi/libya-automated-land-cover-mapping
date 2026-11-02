@@ -150,7 +150,7 @@ class ChatUI:
         self.refresh.on_click(lambda _: self._action(assistant.refresh))
         self.status.on_click(lambda _: self._action(assistant.describe))
         self.result.on_click(lambda _: self._action(assistant.describe))
-        self.prepare.on_click(lambda _: self._action(lambda: assistant.prepare_mapping({'target_year': self.year.value})))
+        self.prepare.on_click(lambda _: self._action(lambda: assistant.prepare_mapping({'target_year': self.year.value, 'fallback_year': self.fallback_year.value})))
         self.pilot.on_click(lambda _: self._action(assistant.prepare_pilot))
         self.report.on_click(lambda _: self._action(lambda: self._save(False)))
         self.backup.on_click(lambda _: self._action(lambda: self._save(True)))
@@ -174,6 +174,8 @@ class ChatUI:
             self.connection, self.connection_output])
         self.choices = w.VBox([w.HTML('<p>Choose a year. Tripoli is the study area configured for this notebook.</p>'),
             w.HBox([self.region, self.year], layout=w.Layout(flex_flow='row wrap')), self.prepare])
+        from .year_controls import install_year_controls
+        install_year_controls(self, initialize_year=True)
         self.review_box = w.VBox([self.preview, w.HBox([self.confirm, self.discard], layout=w.Layout(flex_flow='row wrap'))])
         self.work_box = w.VBox([self.progress, self.refresh, self.pilot, self.backup, self.new])
         self.widget = w.VBox([
@@ -262,8 +264,11 @@ class ChatUI:
             data = self.assistant.store.get(self._draft_id)['inputs']
             if data['action'] == 'mapping':
                 request = data['request']
+                from .year_controls import set_year_choices
+                set_year_choices(self, request)
                 self.preview.value = '<h3>Review your map</h3>' + table([
                     ('Region', area_name(request)), ('Target year', request['target_year']),
+                    ('Fallback year', request['fallback_year']),
                     ('Download available afterwards', 'One small sample; whole-region download is not available')])
                 self.preview.value += '<details><summary>Data used</summary>' + table([
                     ('Boundary', request['aoi_asset']), ('Training data', request['training_asset'])]) + '</details>'
@@ -298,7 +303,7 @@ class ChatUI:
         if self._closed:
             return
         controls = (self.send, self.confirm, self.refresh, self.report, self.backup, self.discard,
-                    self.status, self.result, self.prepare, self.pilot, self.upload, self.connection, self.select, self.year, self.new)
+                    self.status, self.result, self.prepare, self.pilot, self.upload, self.connection, self.select, self.year, self.fallback_year, self.new)
         for control in controls:
             control.disabled = True
         self.activity.value = '<p><b>Working…</b> Please wait; one click is enough.</p>'
