@@ -9,7 +9,9 @@ from streamlit_oauth import OAuth2Component
 # ==========================================
 CLIENT_ID = st.secrets["google_oauth"]["client_id"]
 CLIENT_SECRET = st.secrets["google_oauth"]["client_secret"]
-REDIRECT_URI = st.secrets["google_oauth"]["redirect_uri"]
+# آدرس بازگشتی را به صورت خودکار از خود Streamlit می‌گیریم
+REDIRECT_URI = st.secrets["google_oauth"].get("redirect_uri", "https://libya-automated-land-cover-mapping-jtmkdtphwky47bfyfdyzf.streamlit.app/")
+
 AUTHORIZE_URL = "https://accounts.google.com/o/oauth2/auth"
 TOKEN_URL = "https://oauth2.googleapis.com/token"
 
@@ -47,7 +49,7 @@ else:
         if st.button("🚀 شروع پردازش"):
             st.info("در حال پردازش... (نقشه در نسخه بعدی اینجا نمایش داده می‌شود)")
             
-            # نمایش یک نقشه ساده و تستی برای اطمینان از کارکرد
+            # نمایش یک نقشه ساده و تستی
             m = folium.Map(location=[26.0, 17.0], zoom_start=5)
             folium.Marker([26.0, 17.0], popup="لیبی").add_to(m)
             st_folium(m, width=700, height=500)
