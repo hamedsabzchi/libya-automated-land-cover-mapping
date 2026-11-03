@@ -46,4 +46,25 @@ if uploaded_file is not None:
         st.error(f"❌ Connection error: {e}")
         st.info("Make sure your JSON file is a valid Service Account key.")
 else:
-    st.info("💡 **How to get this file?** Go to Google Cloud Console -> IAM & Admin -> Service Accounts. Create a service account, give it the 'Earth Engine Resource Viewer' role, and create a JSON key. Download it and upload it here.")
+    # ==========================================
+    # راهنمای کاربر (به زبان انگلیسی)
+    # ==========================================
+    st.info("""
+    ### 💡 How to get your Service Account JSON key file?
+    
+    To use this app without consuming the owner's Earth Engine quota, you need to provide your own Service Account key. Follow these steps:
+
+    1. **Go to Google Cloud Console:** Open [Google Cloud Console](https://console.cloud.google.com/) and select your Earth Engine project.
+    2. **Navigate to Service Accounts:** In the left menu, go to **IAM & Admin** > **Service Accounts**.
+    3. **Create or Select an Account:**
+       * Click **+ Create Service Account**, give it a name (e.g., `streamlit-web`), and click **Create and Continue**.
+       * In the "Role" section, search for and select **Earth Engine Resource Viewer**. Click **Continue** and **Done**.
+       * *(If you already have a service account, just click on its name).*
+    4. **Create a Key:**
+       * Go to the **Keys** tab.
+       * Click **Add Key** > **Create new key**.
+       * Select **JSON** and click **Create**.
+    5. **Download & Upload:**
+       * A `.json` file will be downloaded to your computer.
+       * Upload that file using the box above.
+    """)
