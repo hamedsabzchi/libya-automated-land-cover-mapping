@@ -3,22 +3,18 @@ import ee
 import json
 import folium
 from streamlit_folium import st_folium
+import sys
+import os
 
 # ==========================================
 # خواندن فایل از داخل پوشه python
 # ==========================================
 try:
-    from python.landcover_engine import search_seeds, start_drive_export, LandCoverConfig
-except ImportError:
-    try:
-        # اگر پوشه python را به عنوان ماژول نمی‌شناسد، مستقیم import می‌کنیم
-        import sys
-        import os
-        sys.path.append(os.path.join(os.path.dirname(__file__), 'python'))
-        from landcover_engine import search_seeds, start_drive_export, LandCoverConfig
-    except Exception as e:
-        st.error(f"❌ Error loading landcover_engine: {e}")
-        st.stop()
+    sys.path.append(os.path.join(os.path.dirname(__file__), 'python'))
+    from landcover_engine import LandCoverConfig, load_assets, build_seed_model, start_drive_export
+except ImportError as e:
+    st.error(f"❌ Error loading landcover_engine: {e}")
+    st.stop()
 
 st.set_page_config(page_title="Libya Land Cover App", layout="wide")
 st.title("🌍 Libya Automated Land Cover Mapping")
@@ -43,9 +39,13 @@ if uploaded_file is not None:
         aoi = st.text_input("AOI Asset ID:", "projects/practical-proxy-441422-n6/assets/Libya/Fezzan")
         train = st.text_input("Training Points Asset ID:", "projects/practical-proxy-441422-n6/assets/Libya/TD-V4")
         
-        if st.button("🚀 Start Processing"):
-            with st.spinner("Training Random Forest model... This may take a few minutes."):
+        # ==========================================
+        # ۱. دکمه ارسال به گوگل درایو (بدون تایم اوت)
+        # ==========================================
+        if st.button("🚀 Start Processing (Send to Google Drive)"):
+            with st.spinner("Sending export task to Google Drive. This might take a moment..."):
                 try:
+                    # تنظیمات
                     config = LandCoverConfig(
                         aoi_asset=aoi,
                         training_asset=train,
@@ -54,43 +54,29 @@ if uploaded_file is not None:
                         trees=100
                     )
                     
-                    result = search_seeds(config)
-                    best_model = result["model"]
+                    # ساخت مدل (فقط ساخت گراف، نه اجرای آن)
+                    # ما از seed 42 به عنوان پیش‌فرض استفاده می‌کنیم تا سریع باشد
+                    model = build_seed_model(config, seed=42)
+                    final_map = model["final_map"]
                     
-                    st.success(f"✅ Processing complete! Best seed: {result['best_metrics']['seed']}")
+                    # ارسال تسک به گوگل درایو
+                    task = start_drive_export(final_map, config)
+                    st.success(f"✅ Export task started successfully! Task ID: {task.id}")
+                    st.info("You can check the progress of your export in the Earth Engine Code Editor under the 'Tasks' tab. The file will be saved in your Google Drive folder 'LandCover_Exports'.")
                     
-                    st.subheader("Final Land Cover Map")
-                    final_map = best_model["final_map"]
-                    
-                    palette = [
-                        '#002200', '#185e0a', '#74a56a', '#fffb00', '#FF8C00', '#43BE0A',
-                        '#bb6d3a', '#553a17', '#808080', '#00008B', '#15c0df', '#8B4513'
-                    ]
-                    vis_params = {'min': 1, 'max': 12, 'palette': palette}
-                    
-                    map_id = final_map.getMapId(vis_params)
-                    tile_url = map_id['tile_fetcher'].url_format
-                    
-                    m = folium.Map(location=[26.0, 17.0], zoom_start=6)
-                    folium.TileLayer(
-                        tiles=tile_url,
-                        attr='Google Earth Engine',
-                        name='Land Cover',
-                        overlay=True,
-                        control=True
-                    ).add_to(m)
-                    
-                    st_folium(m, width=1000, height=600)
-                    
-                    st.subheader("Download Map")
-                    if st.button("Export to Google Drive"):
-                        with st.spinner("Sending export task to Google Drive..."):
-                            task = start_drive_export(final_map, config)
-                            st.success(f"✅ Export task started! Check your Google Drive. Task ID: {task.id}")
-                            
                 except Exception as e:
                     st.error(f"❌ Processing error: {e}")
-                    
+
+        # ==========================================
+        # ۲. نمایش نقشه پیش‌نمایش (فقط یک لایه ساده برای تست)
+        # ==========================================
+        st.subheader("Quick Preview (Test Map)")
+        st.write("This is a simple preview. For the full map, please use the export button above.")
+        
+        m = folium.Map(location=[26.0, 17.0], zoom_start=6)
+        folium.Marker([26.0, 17.0], popup="Libya").add_to(m)
+        st_folium(m, width=1000, height=500)
+
     except Exception as e:
         st.error(f"❌ Connection error: {e}")
 else:
