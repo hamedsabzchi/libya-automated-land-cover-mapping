@@ -9,8 +9,15 @@ from streamlit_oauth import OAuth2Component
 # ==========================================
 CLIENT_ID = st.secrets["google_oauth"]["client_id"]
 CLIENT_SECRET = st.secrets["google_oauth"]["client_secret"]
-# آدرس بازگشتی را به صورت خودکار از خود Streamlit می‌گیریم
-REDIRECT_URI = st.secrets["google_oauth"].get("redirect_uri", "https://libya-automated-land-cover-mapping-jtmkdtphwky47bfyfdyzf.streamlit.app/")
+
+# ==========================================
+# دریافت خودکار آدرس بازگشتی از Streamlit
+# ==========================================
+# این خط، آدرس دقیق صفحه فعلی را می‌گیرد (با https://)
+REDIRECT_URI = st.experimental_get_query_params().get("redirect_uri", [None])[0]
+if not REDIRECT_URI:
+    # اگر پیدا نشد، از آدرس پیش‌فرض استفاده کن
+    REDIRECT_URI = "https://libya-automated-land-cover-mapping-jtmkdtphwky47bfyfdyzf.streamlit.app/"
 
 AUTHORIZE_URL = "https://accounts.google.com/o/oauth2/auth"
 TOKEN_URL = "https://oauth2.googleapis.com/token"
