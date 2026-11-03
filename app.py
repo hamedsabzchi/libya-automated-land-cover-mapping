@@ -1,6 +1,7 @@
 import streamlit as st
 import ee
-import geemap.foliumap as geemap
+import folium
+from streamlit_folium import st_folium
 from streamlit_oauth import OAuth2Component
 
 # ==========================================
@@ -44,7 +45,12 @@ else:
         train = st.text_input("شناسه نقاط آموزشی:", "projects/practical-proxy-441422-n6/assets/Libya/TD-V4")
         
         if st.button("🚀 شروع پردازش"):
-            st.info("در حال پردازش... (در نسخه بعدی، خروجی اینجا نمایش داده می‌شود)")
+            st.info("در حال پردازش... (نقشه در نسخه بعدی اینجا نمایش داده می‌شود)")
+            
+            # نمایش یک نقشه ساده و تستی برای اطمینان از کارکرد
+            m = folium.Map(location=[26.0, 17.0], zoom_start=5)
+            folium.Marker([26.0, 17.0], popup="لیبی").add_to(m)
+            st_folium(m, width=700, height=500)
             
     except Exception as e:
         st.error(f"خطا در اتصال: {e}")
