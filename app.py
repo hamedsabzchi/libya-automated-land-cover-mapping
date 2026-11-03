@@ -25,16 +25,10 @@ AUTHORIZE_URL = "https://accounts.google.com/o/oauth2/auth"
 TOKEN_URL = "https://oauth2.googleapis.com/token"
 
 # ==========================================
-# دریافت آدرس بازگشتی (متد جدید و صحیح)
+# آدرس بازگشتی (اصلاح شده برای streamlit-oauth)
 # ==========================================
-# آدرسی که گوگل باید بعد از لاگین به آن برگردد
-REDIRECT_URI = st.query_params.get("redirect_uri", None)
-if isinstance(REDIRECT_URI, list):
-    REDIRECT_URI = REDIRECT_URI[0] if REDIRECT_URI else None
-
-# اگر آدرس پیدا نشد، از آدرس اصلی استفاده کن
-if not REDIRECT_URI:
-    REDIRECT_URI = "https://libya-automated-land-cover-mapping-jtmkdtphwky47bfyfdyzf.streamlit.app/"
+# این آدرس باید دقیقاً با آدرسی که در گوگل کلود ثبت کردید یکی باشد
+REDIRECT_URI = "https://libya-automated-land-cover-mapping-jtmkdtphwky47bfyfdyzf.streamlit.app/component/streamlit_oauth.authorize_button"
 
 # ==========================================
 # بخش لاگین با گوگل
