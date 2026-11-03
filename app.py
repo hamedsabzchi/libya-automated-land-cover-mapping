@@ -9,7 +9,7 @@ import os
 # --- Load Engine ---
 try:
     sys.path.append(os.path.join(os.path.dirname(__file__), 'python'))
-    from landcover_engine import LandCoverConfig, start_drive_export, CLASS_VALUES, CLASS_NAMES, CLASS_PALETTE
+    from landcover_engine import LandCoverConfig, start_drive_export, build_seed_model, CLASS_VALUES, CLASS_NAMES, CLASS_PALETTE
 except ImportError as e:
     st.error(f"❌ Error loading landcover_engine: {e}")
     st.stop()
@@ -39,27 +39,26 @@ else:
     st.stop()
 
 # ==========================================
-# 2. Immediate Map Display (No processing wait)
+# 2. Immediate Map Display (Preview)
 # ==========================================
 st.subheader("1. Land Cover Preview")
 st.write("This is a sample of the final map. For the full resolution data, use the export button below.")
 
-# ساخت یک نقشه ساده با استفاده از داده‌های موجود (بدون پردازش جدید)
-# ما از یک نقشه عمومی برای نمایش استفاده می‌کنیم تا سایت فوراً بالا بیاید
-m = folium.Map(location=[26.0, 17.0], zoom_start=6)
+# نقشه ساده
+m = folium.Map(location=[26.0, 17.0], zoom_start=5)
 folium.TileLayer('OpenStreetMap').add_to(m)
 
-# اضافه کردن لجند
+# اصلاح رنگ‌بندی لجند (متن سیاه روی پس‌زمینه سفید)
 legend_html = '''
 <div style="position: fixed; 
-            bottom: 50px; left: 50px; width: 200px; height: auto; 
+            bottom: 50px; left: 50px; width: 220px; height: auto; 
             background-color: white; border:2px solid grey; z-index:9999; font-size:14px;
-            padding: 10px; border-radius: 5px;">
-<b>Land Cover Classes (Preview)</b><br>
+            padding: 10px; border-radius: 5px; color: black;">
+<b style="color: black;">Land Cover Classes</b><br>
 '''
 for i, (val, name) in enumerate(zip(CLASS_VALUES, CLASS_NAMES)):
     color = CLASS_PALETTE[i]
-    legend_html += f'<i style="background:{color}; width: 15px; height: 15px; display: inline-block; margin-right: 5px;"></i> {val}: {name}<br>'
+    legend_html += f'<i style="background:{color}; width: 15px; height: 15px; display: inline-block; margin-right: 5px; border: 1px solid #000;"></i> <span style="color: black;">{val}: {name}</span><br>'
 legend_html += '</div>'
 m.get_root().html.add_child(folium.Element(legend_html))
 
@@ -69,13 +68,13 @@ st_folium(m, width=1000, height=500)
 # 3. Processing Settings & Export
 # ==========================================
 st.subheader("2. Generate Full Map")
-st.write("To generate the full-resolution map, click the button below. The processing will be sent to Earth Engine servers and saved to your Google Drive.")
+st.write("Click the button below to send the processing task to Earth Engine. The map will be saved to your Google Drive.")
 
 aoi = st.text_input("AOI Asset ID:", "projects/practical-proxy-441422-n6/assets/Libya/Fezzan")
 train = st.text_input("Training Points Asset ID:", "projects/practical-proxy-441422-n6/assets/Libya/TD-V4")
 
 if st.button("🚀 Start Export to Google Drive", use_container_width=True):
-    with st.spinner("Sending export task to Google Drive..."):
+    with st.spinner("Sending export task to Google Drive... This may take 10-20 seconds."):
         try:
             config = LandCoverConfig(
                 aoi_asset=aoi,
@@ -84,10 +83,16 @@ if st.button("🚀 Start Export to Google Drive", use_container_width=True):
                 year_count=5,
                 trees=100
             )
-            # فراخوانی تابع ارسال به درایو از فایل شما
-            # ما مستقیماً از start_drive_export استفاده می‌کنیم تا پردازش در پس‌زمینه انجام شود
-            task = start_drive_export(None, config) # None چون تصویر درون تابع ساخته می‌شود
-            st.success(f"✅ Export task started! Task ID: {task.id}")
-            st.info("Check your Google Drive folder 'LandCover_Exports' in a few minutes.")
+            
+            # ساخت مدل برای گرفتن تصویر نهایی (با seed پیش‌فرض)
+            # این کار فقط گراف را می‌سازد و در پس‌زمینه گوگل اجرا می‌شود
+            model = build_seed_model(config, seed=42)
+            final_map = model["final_map"]
+            
+            # ارسال تسک به گوگل درایو
+            task = start_drive_export(final_map, config)
+            st.success(f"✅ Export task started successfully! Task ID: {task.id}")
+            st.info("You can check the progress in your Google Earth Engine Code Editor under the 'Tasks' tab. The file will be saved in your Google Drive folder 'LandCover_Exports'.")
+            
         except Exception as e:
             st.error(f"❌ Error starting export: {e}")
