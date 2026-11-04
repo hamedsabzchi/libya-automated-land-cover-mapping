@@ -45,9 +45,9 @@ The assistant currently does **not** calculate class areas or change statistics,
 | Inspect examples and recorded evidence | [Examples](examples/README.md) | Configurations and links to execution records |
 | Run software checks | [Tests](tests/README.md) | Offline verification and CI |
 | Find earlier development versions | [Notebook directory](python/README.md#earlier-notebooks) and [development history](docs/development-history.md) | Retained for reference; not additional setup steps |
-| Inspect the separate Streamlit prototype | [app.py](app.py) and [requirements.txt](requirements.txt) | Earlier, separate interface; not the complete Colab assistant |
+| Use or deploy the separate website | [Website guide](docs/website.md), [app.py](app.py) and [requirements.txt](requirements.txt) | Google sign-in, each visitor's Earth Engine project, map and accuracy report |
 
-The Streamlit prototype uses a service-account JSON workflow and different sample settings. It has not been established as equivalent to the current assistant. Its files are retained separately from the recommended Colab route.
+The separate Streamlit website uses each visitor's Google authorization, Cloud project and accessible assets. Its owner must configure Google OAuth for the deployed address first; see the [website setup guide](docs/website.md). It calls the existing reference engine, but is not the complete Colab assistant: chat, TIFF tile export and saved-work ZIP recovery remain in Colab. Website tests are offline; live Google sign-in and rendering still require deployment verification.
 
 ## Repository guide
 
@@ -55,6 +55,7 @@ The Streamlit prototype uses a service-account JSON workflow and different sampl
 | --- | --- |
 | [python/](python/README.md) | Complete Colab, compatible notebook entry, mapping engine, adapter and earlier notebooks |
 | [libya_landcover/](libya_landcover/README.md) | Installable assistant application and command-line tools |
+| [website/](website/README.md) | Separate Streamlit interface and per-user Earth Engine workers |
 | [gee/](gee/README.md) | Original Earth Engine reference code |
 | [contracts/](contracts/README.md) | Data contracts and synthetic examples |
 | [docs/](docs/README.md) | User/developer guides, model reference, technical notes and development records |

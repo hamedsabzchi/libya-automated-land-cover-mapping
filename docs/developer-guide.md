@@ -8,7 +8,7 @@ Most users only need the [complete Colab](../python/Libya_Land_Cover_Assistant.i
 
 The notebook opens the map interface and English assistant in `libya_landcover`. Validated requests go through `contracts` into the job layer. The worker uses `python/assistant_adapter.py` and `python/landcover_engine.py` to build the Earth Engine computation. Map display and TIFF export consume the saved map graphs. Accuracy answers read saved result metadata.
 
-The original reference is [gee/automated_land_cover_app.js](../gee/automated_land_cover_app.js). The separate root [Streamlit prototype](../app.py) has its own entry point and requirements; it is not the complete Colab UI.
+The original reference is [gee/automated_land_cover_app.js](../gee/automated_land_cover_app.js). The separate [Streamlit website](../app.py) uses [website/](../website/README.md) for Google sign-in and per-visitor process isolation, with its own requirements and [OAuth setup guide](website.md). It calls the same engine but is not the complete Colab UI.
 
 ## Install from main
 
@@ -31,7 +31,7 @@ libya-landcover --help
 | `.[map]` | Widget/map interface and offline interface tests |
 | `.[map-chat]` | Map interface plus local language-model dependencies; the complete Colab installs this automatically |
 | [python/requirements.txt](../python/requirements.txt) | Earlier standalone notebook environment |
-| [requirements.txt](../requirements.txt) at the repository root | Separate Streamlit prototype |
+| [requirements.txt](../requirements.txt) at the repository root | Separate Streamlit website with Google sign-in |
 | [tests/requirements.txt](../tests/requirements.txt) | Pinned Earth Engine client for offline graph tests |
 
 Use the package extras for the current assistant. The root Streamlit requirements are not its installation instructions. Loading local chat weights is separate from installing the dependencies. No paid inference service is required by the current Colab.

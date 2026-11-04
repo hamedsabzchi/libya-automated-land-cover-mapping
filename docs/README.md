@@ -7,6 +7,7 @@
 | Goal | Guide |
 | --- | --- |
 | Use the map, chat and TIFF downloads | [User guide](user-guide.md) |
+| Deploy the separate website with visitors' Google accounts | [Website setup and use](website.md) |
 | Find a notebook or script | [Python directory](../python/README.md) |
 | Install or extend the code | [Developer guide](developer-guide.md) |
 | Understand data, classes and model behavior | [Model and data reference](model-reference.md) |

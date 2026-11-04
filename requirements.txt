@@ -1,5 +1,6 @@
-streamlit
-earthengine-api
-streamlit-folium
-google-auth-oauthlib
-google-api-python-client
+# Separate hosted website. The Colab assistant uses pyproject.toml extras.
+streamlit[auth]==1.66.1
+earthengine-api==1.7.48
+streamlit-folium==0.26.2
+folium==0.20.0
+pandas>=2.2,<3
