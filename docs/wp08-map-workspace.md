@@ -150,7 +150,7 @@ Python engine, adapter, contracts, map backend and export implementation are unc
 
 ## User path
 
-Open [the single-cell Colab](https://colab.research.google.com/github/hamedsabzchi/libya-automated-land-cover-mapping/blob/feat/wp08-map-workspace/python/Libya_Land_Cover_Assistant.ipynb) and click **Start assistant**. Installation and the first local chat-model download take time. No API key is needed.
+Open [the single-cell Colab](https://colab.research.google.com/github/hamedsabzchi/libya-automated-land-cover-mapping/blob/main/python/Libya_Land_Cover_Assistant.ipynb) and click **Start assistant**. Installation and the first local chat-model download take time. No API key is needed.
 
 1. **Connect.** Click **Connect Google** and follow the authentication prompt. Your account needs authorized Earth Engine access to the configured project, boundary and training assets. Public repository access does not grant asset access.
 2. **Prepare map.** Choose a year, click **Create map** once. Keep Colab connected during preparation. Repeating the same request reuses an existing queued, running or completed map instead of starting another seed search.

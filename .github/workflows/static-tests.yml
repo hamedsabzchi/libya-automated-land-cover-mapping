@@ -26,4 +26,4 @@ jobs:
       - name: Check Earth Engine JavaScript syntax
         run: node --check gee/automated_land_cover_app.js
       - name: Run static repository tests
-        run: python -m pytest -q
+        run: python -m pytest -q tests/test_repository_structure.py

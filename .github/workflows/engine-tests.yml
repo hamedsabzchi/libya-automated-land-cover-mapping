@@ -19,8 +19,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Install EE client for offline graph construction
-        run: python -m pip install -r tests/requirements.txt
+      - name: Install EE client and map widgets for offline tests
+        run: python -m pip install -r tests/requirements.txt ".[map]"
       - name: Require the real EE client tests
         run: python -c "import ee; from ee.apitestcase import ApiTestCase; print(ee.__version__)"
       - name: Check contracts, reference behavior and graph serialization
