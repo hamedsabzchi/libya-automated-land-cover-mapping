@@ -4,7 +4,7 @@ import importlib
 import subprocess
 import sys
 
-SERVICE_COMMIT = "84c3b9b6f8913f5c9a735b2871ed8f02b19d6a0a"
+SERVICE_COMMIT = "3eb4f3d77b4fc3c5d00dfb5ed678e26190f5bb5a"
 
 
 def open_complete_assistant():
