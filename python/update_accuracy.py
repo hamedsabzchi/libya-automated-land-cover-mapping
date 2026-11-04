@@ -4,7 +4,7 @@ import importlib
 import subprocess
 import sys
 
-SERVICE_COMMIT = "47a56b0325b3b1993940e5ee4efd8fe37d9a0b8d"
+SERVICE_COMMIT = "b33e1abebc7f3e65727bd2590b8be320eb954bf6"
 
 
 async def update_accuracy(previous):
@@ -16,11 +16,13 @@ async def update_accuracy(previous):
     old_ui_class, old_assistant_class = previous.__class__, previous.assistant.__class__
     old_parser, old_chat = previous.assistant.parser, previous.chat
     old_children = previous.widget.children
+    old_choices = previous.choices.children
+    old_fallback = getattr(previous, 'fallback_year', None)
     try:
         from libya_landcover.workspace import save_workspace
         backup = save_workspace(previous.assistant, previous.assistant.store.root / 'landcover-before-accuracy.zip',
                                 history=previous.history)
-        print('Your saved work is backed up. Adding accuracy explanations to the assistant…')
+        print('Your saved work is backed up. Restoring target and fallback year controls…')
         if previous.download:
             previous.download(str(backup))
         log = previous.assistant.store.root / 'accuracy-update.log'
@@ -33,22 +35,26 @@ async def update_accuracy(previous):
             raise RuntimeError('The update could not install. Your current workspace and backup are retained.')
         importlib.invalidate_caches()
         # Retain map, export, engine, credentials, model weights and polling modules.
-        for name in ('accuracy_explanation', 'chat_language', 'local_language', 'accuracy', 'assistant', 'map_assistant',
+        for name in ('year_controls', 'accuracy_explanation', 'chat_language', 'local_language', 'accuracy', 'assistant', 'map_assistant',
                      'chat_ui', 'accuracy_chat', 'map_ui'):
             importlib.reload(importlib.import_module('libya_landcover.' + name))
         from libya_landcover.accuracy_chat import upgrade_accuracy_chat
         upgrade_accuracy_chat(previous)
         import libya_landcover
-        libya_landcover.__version__ = '0.10.1'
+        libya_landcover.__version__ = '0.11.0'
         from IPython.display import display
-        # Also show the same chat panel in this cell; the existing map stays mounted.
-        display(previous.chat)
-        print('Ready. Click Explain accuracy or ask about a class. Your map, selection and downloads are unchanged.')
+        # Show the year controls here too; the existing map stays mounted.
+        display(previous.choices)
+        print('Ready. Choose Target year and Fallback year, then click Create map when you want a new run. Your existing work is retained.')
         return previous
     except Exception:
         previous.__class__, previous.assistant.__class__ = old_ui_class, old_assistant_class
         previous.assistant.parser, previous.chat = old_parser, old_chat
         previous.widget.children = old_children
+        previous.choices.children = old_choices
+        if old_fallback is None and hasattr(previous, 'fallback_year'):
+            previous.fallback_year.close()
+            del previous.fallback_year
         raise
     finally:
         previous._busy = False
