@@ -7,7 +7,7 @@ from IPython.display import display, HTML, clear_output
 # The compatibility updater supplies the same pin when opening a fresh workspace.
 if not isinstance(globals().get("SERVICE_COMMIT"), str) or not __import__("re").fullmatch(r"[0-9a-f]{40}", SERVICE_COMMIT):
     raise ValueError("The assistant release pin is missing or invalid.")
-EXPECTED_VERSION = "0.11.1"
+EXPECTED_VERSION = "0.12.0"
 
 def repair_closed_console_logs():
     # Older startup redirected stderr into a short-lived file. Libraries retained
@@ -109,6 +109,11 @@ def start_assistant():
             # Retire old controls only after installation succeeds. Preserve all work files.
             if not reuse_workspace:
                 retire_previous_interface()
+            # Input validation also lives outside the UI package. Refresh it
+            # before importing new methods, including in a reused runtime.
+            for name in ('contracts.models', 'contracts', 'python.landcover_engine', 'python.assistant_adapter'):
+                if name in sys.modules:
+                    importlib.reload(sys.modules[name])
             for name in list(sys.modules):
                 if name == "libya_landcover" or name.startswith("libya_landcover."):
                     del sys.modules[name]
@@ -140,6 +145,7 @@ def start_assistant():
             display(ui.widget)
             attach_colab_updates(ui)
             assistant = ui.assistant
+            assistant.engine_commit = SERVICE_COMMIT  # New requests record the installed source.
             return
         progress.update(HTML("<h3>Opening your assistant…</h3><p>2 of 2 · Loading English chat. "
             "The first download can take several minutes. Please wait here.</p>"))

@@ -131,7 +131,7 @@ class ChatUI:
         self.result = w.Button(description='Show result')
         self.pilot = w.Button(description='Prepare sample download', button_style='primary', layout=w.Layout(width='230px'))
         self.prepare = w.Button(description='Review my map', button_style='primary', layout=w.Layout(width='190px'))
-        self.year = w.Dropdown(description='Year', options=list(range(2024, 2016, -1)), value=assistant.profile['target_year'])
+        self.year = w.Dropdown(description='Year', options=list(range(2025, 2016, -1)), value=assistant.profile['target_year'])
         self.region = w.Dropdown(description='Region', options=[area_name(assistant.profile)], disabled=True)
         self.upload = w.FileUpload(accept='.zip', multiple=False, description='Open saved work', layout=w.Layout(width='190px'))
         self.connection = w.Button(description='Connect Google', button_style='primary', layout=w.Layout(width='190px'), disabled=connect is None)

@@ -491,7 +491,15 @@ class MapUiTests(unittest.IsolatedAsyncioTestCase):
         self.a.selected=job['job_id'];self.ui.live_ready=True;self.ui.poll_seconds=.01
         def finish(store,identifier):return store.update(store.get(identifier),state='completed',destination_uris=['https://drive.google.com/#folders/fixture'])
         with patch('libya_landcover.map_ui.poll_export',side_effect=finish) as poll,patch('libya_landcover.assistant.submit_export') as submit:
-            self.ui._poll_task=asyncio.create_task(self.ui._poll_loop());await asyncio.sleep(.08)
+            self.ui._poll_task=asyncio.create_task(self.ui._poll_loop())
+            async def wait_for_link():
+                while 'fixture' not in self.ui.progress.value:
+                    if self.ui._poll_task.done():
+                        await self.ui._poll_task
+                        self.fail('Automatic polling stopped before displaying the link')
+                    await asyncio.sleep(.01)
+            # Wait for the observable result; thread scheduling can exceed 80 ms.
+            await asyncio.wait_for(wait_for_link(), timeout=3)
             self.assertIn('fixture',self.ui.progress.value);submit.assert_not_called();poll.assert_called_once()
             self.ui.close();await asyncio.sleep(.03);poll.assert_called_once()
 

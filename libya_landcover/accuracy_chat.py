@@ -41,8 +41,15 @@ def upgrade_accuracy_chat(ui):
         assistant.parser = LocalParser(parser._generate, device=parser.device, model_id=parser.model_id)
     elif parser.__class__.__name__ == 'GuidedParser':
         assistant.parser = GuidedParser()
+    year_widgets = [widget for widget in (ui.year, getattr(ui, 'fallback_year', None)) if widget is not None]
+    # Bound observers belong to the previously loaded class. Detach them before
+    # replacing that class, then bind the new method to these same widgets.
+    for widget in year_widgets:
+        widget.unobserve(ui._change_year, names='value')
     assistant.__class__ = MapAssistant
     ui.__class__ = MapUI
+    for widget in year_widgets:
+        widget.observe(ui._change_year, names='value')
     from .year_controls import install_year_controls
     install_year_controls(ui)
     install_accuracy_chat(ui)

@@ -65,7 +65,7 @@ class ContractTests(unittest.TestCase):
                 RunRequest({**fixture("request.json"), key:value})
 
     def test_request_rejects_missing_assets_types_ranges_and_unknown_versions(self):
-        mutations = {"target_year":[2025,2024.5,"2024",True], "year_count":[0,21,True],
+        mutations = {"target_year":[2026,2024.5,"2024",True], "year_count":[0,21,True],
                      "trees":[0,5001,500.5,True], "train_fraction":[0,1,True,"0.7"],
                      "schema_version":["2.0"], "class_field":["", " lc_code "],
                      "aoi_asset":["", "Fezzan", "https://code.earthengine.google.com/?asset=users/demo/aoi"]}

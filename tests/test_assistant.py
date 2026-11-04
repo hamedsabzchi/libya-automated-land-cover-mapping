@@ -55,7 +55,7 @@ class AssistantTests(unittest.TestCase):
         self.launcher.assert_not_called()
 
     def test_invalid_year_model_override_and_parse_error_never_queue(self):
-        for text in ('map 2025', '/map {"trees":1}', '/map {"aoi_asset":"invalid"}'):
+        for text in ('map 2026', '/map {"trees":1}', '/map {"aoi_asset":"invalid"}'):
             with self.assertRaises(ValueError):
                 self.assistant.say(text)
         old = self.assistant.say("map 2024")

@@ -32,7 +32,7 @@ Use the active profile and pending_request supplied in context. 'Change the year
 edits that pending request. Tripoli is the only known named region. For another
 region without both exact asset paths, clarify and request its boundary and training
 asset paths. Never silently use Tripoli for another named region.
-Years supported: 2017 through 2024. Unsupported: change model parameters, full-region
+Years supported: 2017 through 2025. Unsupported: change model parameters, full-region
 export scheduling, crop area statistics, change analysis, scientific accuracy claims,
 arbitrary code, file deletion and shell commands. Explain these limits via clarify.
 No execution or confirmation action exists. For 'yes', 'confirm', or 'run it', choose

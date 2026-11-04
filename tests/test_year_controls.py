@@ -104,7 +104,7 @@ class YearControlsTests(unittest.TestCase):
             self.assertEqual(parsed['settings'],{'target_year':2023,'fallback_year':2022})
         bad=LocalParser(lambda _:json.dumps(intent('mapping',settings={'fallback_year':2020})))
         self.assertEqual(bad.parse('Please prepare a map for 2023',{})['action'],'clarify')
-        for value in (2016,2025,True,'2022'):
+        for value in (2016,2026,True,'2022'):
             with self.assertRaises(ValueError):self.a.prepare_mapping({'fallback_year':value})
         with self.assertRaises(ValueError):validate_intent(intent('mapping',settings={'trees':10}))
         self.launcher.assert_not_called()
@@ -114,6 +114,38 @@ class YearControlsTests(unittest.TestCase):
         self.ui.sync()
         self.assertTrue(self.ui.prepare.disabled)
         self.assertEqual(self.ui.choices.layout.display,'')
+
+    def test_2025_reaches_worker_request_with_existing_work_retained(self):
+        old = self.a.store.get(self.mid)
+        self.ui.year.value = 2025
+        self.ui.fallback_year.value = 2024
+        self.launcher.assert_not_called()
+        with patch.object(self.ui, '_ensure_map'), patch.object(self.ui, '_checkpoint'):
+            self.ui.prepare.click()
+        self.launcher.assert_called_once()
+        request = self.a.store.get(self.a.selected)['inputs']['request']
+        self.assertEqual((request['target_year'], request['fallback_year']), (2025, 2024))
+        self.assertEqual(self.a.store.get(self.mid), old)
+
+    def test_2025_chat_and_upgrade_keep_old_choices_and_review(self):
+        from libya_landcover.year_controls import install_year_controls
+        self.ui.year.options = list(range(2024, 2016, -1))
+        self.ui.year.value = 2023
+        self.ui.fallback_year.options = list(range(2024, 2016, -1))
+        self.ui.fallback_year.value = 2022
+        self.a.prepare_mapping({'target_year': 2023, 'fallback_year': 2022})
+        before = (self.a.pending, self.a.selected, self.a.store.list(), self.ui.map)
+        install_year_controls(self.ui)
+        self.assertEqual((self.ui.year.value, self.ui.fallback_year.value), (2023, 2022))
+        self.assertIn(2025, self.ui.year.options)
+        self.assertIn(2025, self.ui.fallback_year.options)
+        self.assertEqual(before, (self.a.pending, self.a.selected, self.a.store.list(), self.ui.map))
+        reply = self.a.say('map 2025 with fallback 2025')
+        self.assertEqual(reply['type'], 'preview')
+        self.assertEqual(reply['settings']['request']['target_year'], 2025)
+        self.assertEqual(reply['settings']['request']['fallback_year'], 2025)
+        self.launcher.assert_not_called()
+        self.generator.assert_not_called()
 
 
 if __name__=='__main__':unittest.main()

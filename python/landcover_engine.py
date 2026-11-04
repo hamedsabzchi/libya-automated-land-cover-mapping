@@ -28,13 +28,13 @@ ENGINE_VERSION = "0.3.0"
 EMBEDDING_COLLECTION = "GOOGLE/SATELLITE_EMBEDDING/V1/ANNUAL"
 # Modeling-core counterpart of the complete GEE application.
 # It mirrors predictor construction, stratified splitting, Random Forest settings,
-# temporal cultivated-class rules, validation metrics, and 2017-2024 data bounds.
+# temporal cultivated-class rules, validation metrics, with input years extended through 2025.
 # The final flexibleRunCompleteAssets path is the reference (WP01).
 # Browser widgets and direct-download orchestration belong to later output work.
 # Native classifier-backed images are retained; no tree-text conversion is used.
 SRTM_IMAGE = "USGS/SRTMGL1_003"
 EMBEDDING_FIRST_YEAR = 2017
-EMBEDDING_LAST_YEAR = 2024
+EMBEDDING_LAST_YEAR = 2025
 
 DEFAULT_AOI_ASSET = "projects/practical-proxy-441422-n6/assets/Libya/Fezzan"
 DEFAULT_TRAINING_ASSET = "projects/practical-proxy-441422-n6/assets/Libya/TD-V4"
@@ -128,7 +128,7 @@ def validate_config(config):
     normalize_asset_id(config.training_asset, "Training asset")
     if not isinstance(config.class_field, str) or not config.class_field.strip():
         raise ValueError("Class field is empty.")
-    for key, low, high in (("target_year",2017,2024), ("fallback_year",2017,2024),
+    for key, low, high in (("target_year",EMBEDDING_FIRST_YEAR,EMBEDDING_LAST_YEAR), ("fallback_year",EMBEDDING_FIRST_YEAR,EMBEDDING_LAST_YEAR),
                           ("year_count",1,20), ("trees",1,5000), ("tile_scale",1,64),
                           ("excluded_class_from_threshold",-999,999)):
         value = getattr(config, key)

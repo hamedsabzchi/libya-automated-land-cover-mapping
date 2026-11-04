@@ -45,14 +45,18 @@ async def update_accuracy(previous):
         if installed.returncode:
             raise RuntimeError('The update could not install. Your current workspace and backup are retained.')
         importlib.invalidate_caches()
+        for name in ('contracts.models', 'contracts', 'python.landcover_engine', 'python.assistant_adapter'):
+            if name in sys.modules:
+                importlib.reload(sys.modules[name])
         # Retain map, export, engine, credentials, model weights and polling modules.
-        for name in ('year_controls', 'accuracy_explanation', 'chat_language', 'local_language', 'accuracy', 'assistant', 'map_assistant',
+        for name in ('jobs', 'year_controls', 'accuracy_explanation', 'chat_language', 'local_language', 'accuracy', 'assistant', 'map_assistant',
                      'chat_ui', 'accuracy_chat', 'map_ui'):
             importlib.reload(importlib.import_module('libya_landcover.' + name))
         from libya_landcover.accuracy_chat import upgrade_accuracy_chat
         upgrade_accuracy_chat(previous)
+        previous.assistant.engine_commit = SERVICE_COMMIT
         import libya_landcover
-        libya_landcover.__version__ = '0.11.1'
+        libya_landcover.__version__ = '0.12.0'
         from IPython.display import display
         # Show the year controls here too; the existing map stays mounted.
         display(previous.choices)

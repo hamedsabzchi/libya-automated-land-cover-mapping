@@ -80,6 +80,34 @@ class ReferenceClientTests(unittest.TestCase):
 
 
 class EngineControlTests(unittest.TestCase):
+    def test_2025_config_retains_annual_window_and_rejects_later_years(self):
+        cfg = config(target_year=2025, fallback_year=2024)
+        lc.validate_config(cfg)
+        self.assertEqual(cfg.years, (2025, 2024, 2023, 2022, 2021))
+        lc.validate_config(config(target_year=2024, fallback_year=2025))
+        for field in ('target_year', 'fallback_year'):
+            with self.assertRaises(ValueError): lc.validate_config(config(**{field: 2026}))
+
+    def test_2025_coverage_is_checked_before_building_classification_inputs(self):
+        cfg = config(target_year=2025, fallback_year=2024, year_count=1)
+        roi, points = MagicMock(), MagicMock()
+        counts = {'train_2025': 1, 'aoi_2025': 0, 'train_2024': 1, 'aoi_2024': 0}
+        with patch.object(lc, '_load_checked_assets', return_value=(roi, points, {})), \
+             patch.object(lc, 'embedding_collection') as collection, \
+             patch.object(lc.ee, 'Dictionary') as dictionary, \
+             patch.object(lc, 'terrain_image') as terrain, \
+             patch.object(lc, 'build_embeddings') as build:
+            dictionary.return_value.getInfo.return_value = counts
+            with self.assertRaises(lc.EngineError) as caught: lc.prepare_inputs(cfg)
+            self.assertEqual(caught.exception.code, 'COVERAGE_UNAVAILABLE')
+            self.assertIn('AOI 2025/2024', str(caught.exception))
+            self.assertEqual([c.args[0] for c in collection.call_args_list], [2025, 2025, 2024, 2024])
+            build.assert_not_called(); terrain.assert_not_called()
+            counts['aoi_2024'] = 1
+            prepared = lc.prepare_inputs(cfg)
+            self.assertEqual(prepared.config.target_year, 2025)
+            self.assertEqual(build.call_count, 2)  # Existing national and AOI graphs.
+
     def test_reference_preflight_order_and_branches(self):
         good={'aoiFeatures':1,'aoiAreaM2':10,'trainingFeatures':4,'classHistogram':{'1':2,'2':2}}
         self.assertEqual(lc.validate_asset_report(good)['total'],4)

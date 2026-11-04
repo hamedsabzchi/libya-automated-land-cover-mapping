@@ -52,7 +52,7 @@ with tempfile.TemporaryDirectory() as folder:
     with patch.dict(sys.modules,{'google.colab':colab}), \
          patch('IPython.display.display',return_value=Mock()),patch('IPython.display.clear_output'), \
          patch('subprocess.run',install),patch('libya_landcover.local_language.LocalParser.load',load), \
-         patch('importlib.metadata.version',side_effect=lambda name:'2.6.0' if name=='torch' else '0.11.1'), \
+         patch('importlib.metadata.version',side_effect=lambda name:'2.6.0' if name=='torch' else '0.12.0'), \
          patch('urllib.request.urlopen',return_value=__import__('io').BytesIO(starter)) as fetch, \
          patch('socket.socket.connect',side_effect=AssertionError('No network')), \
          patch('google.auth.default',side_effect=AssertionError('No credentials')), \
@@ -66,6 +66,7 @@ with tempfile.TemporaryDirectory() as folder:
         assert ui.assistant is a and not ui._closed
         assert ui.year.description=='Target year' and ui.fallback_year.description=='Fallback year'
         assert ui.year.value==2024 and ui.fallback_year.value==2023
+        assert 2025 in ui.year.options and 2025 in ui.fallback_year.options
         assert ui.accuracy_button.description=='Model accuracy'
         assert ui.explain_accuracy_button.description=='Explain accuracy'
         assert ui.tile_action.description=='Create tile download'

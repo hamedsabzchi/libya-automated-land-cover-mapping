@@ -61,7 +61,7 @@ async def exercise():
             ns={'ui':ui,'assistant':a,'local_parser':a.parser}
             with patch.dict(sys.modules,{'google.colab':colab}), patch('IPython.display.display',display), \
                  patch('IPython.display.clear_output'), patch('subprocess.run',install), \
-                 patch('importlib.metadata.version',side_effect=lambda name:'2.6.0' if name=='torch' else '0.11.1'):
+                 patch('importlib.metadata.version',side_effect=lambda name:'2.6.0' if name=='torch' else '0.12.0'):
                 exec(code.replace('/content/',folder+'/'),ns)
             assert ns['ui'] is ui and ns['assistant'] is a
         else:
@@ -79,6 +79,7 @@ async def exercise():
         assert not ui._busy and not ui._closed
         if sys.argv[1]!='failure':
             assert ui.fallback_year.value==2023 and ui.year.value==2024
+            assert 2025 in ui.year.options and 2025 in ui.fallback_year.options
             assert ui.choices.layout.display==''
             assert a.say('classification accuracy')['metrics']['overall']==1.0  # Offline fixture ONLY.
             assert a.parser._generate is generate

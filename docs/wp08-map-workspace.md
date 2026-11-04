@@ -1,5 +1,25 @@
 # WP08 — Map workspace
 
+## 2025 year support (0.12.0)
+
+The complete Colab supports target and fallback years **2017–2025**. Existing defaults
+remain 2024/2023, and existing saved requests are unchanged. The dropdowns, local chat
+prompt, request validation and Python input limits now agree. Reopening an older
+workspace refreshes validation and expands both controls without losing their selected
+values, map widgets, downloads or pending review. New requests record the new source pin.
+
+The original GEE file remains byte-for-byte unchanged, including its historical 2024
+input ceiling. The Python port extends that input range; classifier, seed selection,
+metrics and temporal fallback logic are unchanged. The existing coverage preflight
+queries embedding counts for the training footprint and AOI before classification.
+The existing target-year fallback rule is retained; this is not an independent claim
+that 2025 coverage was verified in the user account. No extra area calculation is added.
+
+Offline tests cover 2025 requests through the UI and chat, worker request values,
+engine validation, coverage failure before graph construction, existing-year behavior,
+and retained maps/downloads/accuracy/backup flows. Live 2025 execution in an authenticated
+Earth Engine account has not been performed during this release.
+
 ## Complete Colab startup (0.11.1)
 
 `python/Libya_Land_Cover_Assistant.ipynb` is the complete, single-cell entry point.

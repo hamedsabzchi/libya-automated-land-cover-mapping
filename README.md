@@ -101,10 +101,10 @@ See [Python engine integration](docs/python-engine-integration.md) for usage, co
 
 [Open the map assistant in Colab](https://colab.research.google.com/github/hamedsabzchi/libya-automated-land-cover-mapping/blob/feat/wp08-map-workspace/python/Libya_Land_Cover_Assistant.ipynb).
 Click **Start assistant** once. Follow **Connect → Prepare map → Explore & download** and the visible **Next step** instruction.
-The complete 0.11.1 workspace is in this one notebook; no update cells, previous notebook, ZIP or code edits are required to start. Existing work in the same runtime is retained.
+The complete 0.12.0 workspace is in this one notebook; no update cells, previous notebook, ZIP or code edits are required to start. Existing work in the same runtime is retained.
 
 - Connect the Google account authorized for the configured Tripoli project/data.
-- Choose **Target year** and **Fallback year**, then click **Create map** once. Progress updates automatically.
+- Choose **Target year** and **Fallback year** (2017–2025), then click **Create map** once. Progress updates automatically.
 - Explore the full study-area land-cover layer and its 12-class legend.
 - Select a blue square and click **Create tile download** once. The **Downloads**
   section keeps its status and Drive link visible automatically, even when you select another tile.
@@ -112,7 +112,8 @@ The complete 0.11.1 workspace is in this one notebook; no update cells, previous
   preparing another year, and downloading the tile selected on the map. **Model accuracy**
   and **Explain accuracy** read and interpret saved validation results without new Earth Engine computation.
 
-Version 0.11.1 keeps the reference GEE, Python modeling engine and adapter unchanged.
+Version 0.12.0 extends Python year input limits through 2025. The original GEE file,
+classification logic, adapter and export implementation are unchanged.
 Display requests use the retained final-map graph over the actual AOI; downloads
 use selected 1024 × 1024 windows on the existing 10 m grid. Display tiles load on
 demand: an accepted map request does not prove every location has rendered.
