@@ -1,234 +1,86 @@
 # Libya Automated Land-Cover Mapping
 
+Create and explore land-cover maps, download selected areas as GeoTIFFs, and ask an English assistant about your results. The project includes a Google Colab workspace, a Python mapping engine, and the original Google Earth Engine (GEE) reference application.
+
+[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/hamedsabzchi/libya-automated-land-cover-mapping/blob/main/python/Libya_Land_Cover_Assistant.ipynb)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22798666.svg)](https://doi.org/10.5281/zenodo.22798666)
 
-A reproducible Google Earth Engine and Python workflow for guided automated land-cover mapping in Libya, developed around a Fezzan case study while accepting user-supplied AOI and training assets. The project combines annual Google Satellite Embedding features with SRTM terrain predictors, class-stratified hold-out validation, per-year Random Forest models, multi-seed model selection, and explicit multi-year temporal decision rules.
+## Start here — use the assistant
 
-## Land-Cover Assistant — start here
+**[Open the complete Libya Land-Cover Assistant](https://colab.research.google.com/github/hamedsabzchi/libya-automated-land-cover-mapping/blob/main/python/Libya_Land_Cover_Assistant.ipynb)**
 
-[Open the map assistant in Colab](https://colab.research.google.com/github/hamedsabzchi/libya-automated-land-cover-mapping/blob/main/python/Libya_Land_Cover_Assistant.ipynb).
-Click **Start assistant** once. Follow **Connect → Prepare map → Explore & download** and the visible **Next step** instruction.
-The complete 0.12.1 workspace is in this one notebook; no update cells, previous notebook, ZIP or code edits are required to start. Existing work in the same runtime is retained.
+Everything opens in this one notebook. No code edits, separate update cells, paid chat API or external app server are required.
 
-- Connect the Google account authorized for the configured Tripoli project/data.
-- Choose **Target year** and **Fallback year** (2017–2025), then click **Create map** once. Progress updates automatically.
-- Explore the full study-area land-cover layer and its 12-class legend.
-- Select a blue square and click **Create tile download** once. The **Downloads**
-  section keeps its status and Drive link visible automatically, even when you select another tile.
-- **Ask the assistant** is optional English help for colours, next steps, status,
-  preparing another year, and downloading the tile selected on the map. **Model accuracy**
-  and **Explain accuracy** read and interpret saved validation results without new Earth Engine computation.
+1. Click **Start assistant**, then **Connect Google** with an account authorized for the configured Earth Engine project and data.
+2. Choose **Target year** and **Fallback year** (2017–2025), then click **Create map** once.
+3. Explore the map and legend. Select a blue grid square and click **Create tile download** once. Its progress and Google Drive link appear automatically in **Downloads**.
+4. Use **Save work for later** before leaving. Next time, restore that ZIP under **Continue saved work**.
 
-Version 0.12.0 extends Python year input limits through 2025. The original GEE file,
-classification logic, adapter and export implementation are unchanged.
-Display requests use the retained final-map graph over the actual AOI; downloads
-use selected 1024 × 1024 windows on the existing 10 m grid. Display tiles load on
-demand: an accepted map request does not prove every location has rendered.
-If the map is empty, expand **Map tools and diagnostics** and use **Restore map display**;
-do not create the map again.
-This is not a completed whole-region TIFF delivery or an automatic full-grid export.
+The default workspace is **Tripoli, Libya**. Public GitHub access does not grant access to the configured Earth Engine assets. A new user needs access arranged by the project owner. Free Colab resources and Earth Engine quotas still apply; keep the notebook connected while working.
 
-No paid chat API, external app server or Colab Pro subscription is required by the
-notebook. Free Colab resources are limited; Earth Engine access and project quotas
-still apply. The local chat model can misunderstand requests; buttons remain
-available if chat cannot load. **Save work for later** downloads all completed maps,
-export records and support evidence in one recovery ZIP. TIFFs remain in Drive. See [WP08 usage, boundaries and acceptance](docs/wp08-map-workspace.md).
+**[User guide](docs/user-guide.md)** · **[Choose a component](#choose-the-right-component)** · **[All documentation](docs/README.md)** · **[Developer guide](docs/developer-guide.md)**
 
-The [WP07 notebook](python/07_wp07_free_english_assistant.ipynb) and
-[WP07 notes](docs/wp07-free-colab-chat.md) remain available for the earlier sample-only interface.
+## What the current assistant does
 
-## Main project components
-
-| Component | Location |
+| Feature | What you receive |
 | --- | --- |
-| Complete Colab assistant | [Libya Land-Cover Assistant](python/Libya_Land_Cover_Assistant.ipynb) |
-| English chat, map interface, jobs and downloads | [Python assistant package](libya_landcover/) |
-| Original GEE reference application | [GEE JavaScript](gee/automated_land_cover_app.js) |
-| Python mapping engine | [Land-cover engine](python/landcover_engine.py) |
-| Usage and saved-work guidance | [Assistant documentation](docs/wp08-map-workspace.md) |
+| Study-area map | Interactive land-cover layer, boundary and 12-class legend; colours load as you explore |
+| Selected-area download | A selected 1024 × 1024 tile at 10 m resolution, exported as TIFF to Google Drive |
+| English assistant | Help with colours, progress, selected downloads and preparing another year |
+| Model accuracy | Saved validation tables, confusion matrix and explanations; no new Earth Engine calculation to read them |
+| Save and resume | One ZIP with saved maps, download records and recovery information; raster pixels remain in Drive |
 
-## Project status
+The assistant currently does **not** calculate class areas or change statistics, or automatically download the entire study area. A completed map-preparation job does not mean every display tile has rendered. An unfinished Python mapping process cannot be restored after Colab deletes its runtime.
 
-This repository is an **independent personal technical portfolio and research-development project by Hamed Sabzchi Dehkharghani**. It is not published on behalf of any employer, organization, or institution. No institutional affiliation, sponsorship, approval, endorsement, or official status is claimed or implied.
+## Choose the right component
 
-The repository contains the complete reference Google Earth Engine JavaScript application, a Python Earth Engine implementation of the same modeling core, an interactive Colab notebook, citation metadata, credential-free static tests, and GitHub Actions continuous integration.
+| Your goal | Start with | Role |
+| --- | --- | --- |
+| Use the map and assistant | [Complete Colab](python/Libya_Land_Cover_Assistant.ipynb) | Recommended user entry point, version 0.12.1 |
+| Understand the workflow | [User guide](docs/user-guide.md) | Buttons, chat, downloads and saved work |
+| Work directly with the original GEE app | [GEE directory](gee/README.md) | Original JavaScript reference; unchanged |
+| Develop or integrate the assistant | [Python package](libya_landcover/README.md) | Interface, chat, jobs, exports and reports |
+| Inspect the mapping implementation | [Python directory](python/README.md) | Engine, adapter and notebook inventory |
+| Understand request/result formats | [Contracts](contracts/README.md) | Validated requests, statuses and results |
+| Inspect examples and recorded evidence | [Examples](examples/README.md) | Configurations and links to execution records |
+| Run software checks | [Tests](tests/README.md) | Offline verification and CI |
+| Find earlier development versions | [Notebook directory](python/README.md#earlier-notebooks) and [development history](docs/development-history.md) | Retained for reference; not additional setup steps |
+| Inspect the separate Streamlit prototype | [app.py](app.py) and [requirements.txt](requirements.txt) | Earlier, separate interface; not the complete Colab assistant |
 
-## Main data inputs
+The Streamlit prototype uses a service-account JSON workflow and different sample settings. It has not been established as equivalent to the current assistant. Its files are retained separately from the recommended Colab route.
 
-- **Annual satellite representation:** `GOOGLE/SATELLITE_EMBEDDING/V1/ANNUAL`
-- **Terrain:** `USGS/SRTMGL1_003` elevation, plus slope and aspect derived with Earth Engine
-- **AOI:** a user-supplied Earth Engine `FeatureCollection`
-- **Training data:** a user-supplied point `FeatureCollection` with integer land-cover labels
+## Repository guide
 
-For portability, the public GEE application intentionally starts with blank AOI and training-asset fields. Users paste accessible Earth Engine asset IDs at run time. The Python configuration retains author-specific example asset IDs as convenience defaults; those assets are **external dependencies and are not bundled with this repository**, so other users must provide equivalent replacements.
+| Location | Contents |
+| --- | --- |
+| [python/](python/README.md) | Complete Colab, compatible notebook entry, mapping engine, adapter and earlier notebooks |
+| [libya_landcover/](libya_landcover/README.md) | Installable assistant application and command-line tools |
+| [gee/](gee/README.md) | Original Earth Engine reference code |
+| [contracts/](contracts/README.md) | Data contracts and synthetic examples |
+| [docs/](docs/README.md) | User/developer guides, model reference, technical notes and development records |
+| [examples/](examples/README.md) | Tripoli case configuration and export specification |
+| [tests/](tests/README.md) and [.github/workflows/](.github/workflows/) | Software checks and GitHub Actions |
+| [pyproject.toml](pyproject.toml) | Assistant package version and dependencies |
+| [CITATION.cff](CITATION.cff) | Software citation metadata |
 
-## Dataset availability and attribution
+Existing source files and notebooks keep their paths so previous links and saved workflows remain usable.
 
-The public Earth Engine catalog currently lists `GOOGLE/SATELLITE_EMBEDDING/V1/ANNUAL` as a global **10 m**, **64-dimensional** annual embedding collection covering **2017 through 2024**. The dataset is licensed under **CC BY 4.0** and requires the attribution: **“The AlphaEarth Foundations Satellite Embedding dataset is produced by Google and Google DeepMind.”**
+## Model and interpretation
 
-The terrain predictor `USGS/SRTMGL1_003` is the SRTM V3 elevation product at approximately **30 m**. Because the workflow combines 10 m embeddings with 30 m terrain predictors, the terrain variables do not contain native 10 m spatial detail even when classification/output scale is set to 10 m.
+The workflow uses annual Google Satellite Embeddings and SRTM terrain predictors with Random Forest classification and temporal decision rules. The original GEE reference accepts 2017–2024; the Python assistant extends input selection through 2025 while retaining the coverage and fallback checks.
 
-### References
+Accuracy reports describe an **internal stratified random hold-out assessment, not independent external validation**. They are saved model results, not a separate accuracy assessment of the selected download tile.
 
-- Brown, C. F., Kazmierski, M. R., Pasquarella, V. J., et al. (2025). *AlphaEarth Foundations: An embedding field model for accurate and efficient global mapping from sparse label data*. arXiv. DOI: `10.48550/arXiv.2507.22291`.
-- Farr, T. G., Rosen, P. A., Caro, E., et al. (2007). *The Shuttle Radar Topography Mission*. *Reviews of Geophysics*, 45(2), RG2004. DOI: `10.1029/2005RG000183`.
+The full [model and data reference](docs/model-reference.md) preserves the class list, modeling settings, seed-selection logic, scientific references, interpretation limitations and reproducibility details.
 
-## Land-cover classes
+Attribution: **“The AlphaEarth Foundations Satellite Embedding dataset is produced by Google and Google DeepMind.”**
 
-| Code | Class |
-|---:|---|
-| 1 | Forest |
-| 2 | Shrubland |
-| 3 | Grassland |
-| 4 | Cultivated rainfed |
-| 5 | Cultivated irrigated |
-| 6 | Orchards |
-| 7 | Bare soil/sand |
-| 8 | Rocks |
-| 9 | Built up |
-| 10 | Artificial water |
-| 11 | Seasonal water |
-| 12 | Sebkha |
+## Author, citation and use
 
-## Reference workflow
+**Hamed Sabzchi Dehkharghani**
 
-The default priority year is **2024**, with five annual maps (`2024, 2023, 2022, 2021, 2020`) and **2023** used to fill masked pixels in the priority-year embedding. The original GEE reference validates year selections against **2017–2024**. The Colab assistant and Python input validation support **2017–2025**, with the existing coverage preflight and fallback rules.
+This is an **independent personal technical portfolio and research-development project**. It is not published on behalf of any employer, organization or institution; no institutional affiliation, sponsorship, approval or endorsement is claimed.
 
-All valid labeled training points are retained, including points outside the mapping AOI. Mapping, display, and output are clipped to the AOI. For each candidate random seed, points are split independently within each class using a default **70% training / 30% validation** split. A separate Random Forest is trained for every selected year using all Satellite Embedding axes plus elevation, slope, and aspect. Defaults are **500 trees**, **0.95 bag fraction**, and **10 m** processing/output scale.
+See [CITATION.cff](CITATION.cff) for citation metadata. The recorded Zenodo DOI for **v1.0.3** is [10.5281/zenodo.22798666](https://doi.org/10.5281/zenodo.22798666); that citation version is distinct from the assistant package version.
 
-The final temporal map is not a simple majority map. It starts with the per-pixel modal class, then applies explicit priority rules for classes **4 (cultivated rainfed)** and **5 (cultivated irrigated)**. The priority-year class is retained when it is 4 or 5; repeated occurrences of class 4 or class 5 across the annual stack also trigger cultivated-class rules, with the priority year resolving pixels where both occur repeatedly.
-
-## Seed selection and accuracy reporting
-
-The JavaScript application evaluates a fixed sequence of candidate seeds. For each valid seed it derives:
-
-- overall accuracy;
-- Cohen's kappa;
-- producer accuracy by class;
-- a 12 × 12 confusion matrix in the Earth Engine model object.
-
-The selection score is the **minimum producer accuracy across included classes**. Class **8 (Rocks)** is excluded from the default 60% minimum-producer-accuracy stopping rule, while remaining a mapped class. The best candidate seen so far is retained, and evaluation can stop when the target is reached.
-
-## Output
-
-The final active JavaScript path retains the selected native classifier-backed map and generates direct GeoTIFF browser-download links. It supports fixed-10 m row/column grids, paged link generation, automatic skipping of empty/outside-AOI cells, and dynamic map symbols. The earlier tree-text materialization path is inactive. The Python engine retains the selected candidate objects and provides an optional Google Drive export helper; browser-download/UI mechanics are separate from the model port. The output class domain is **1–12**.
-
-## Repository structure
-
-```text
-libya-automated-land-cover-mapping/
-├── README.md
-├── CITATION.cff
-├── .gitignore
-├── gee/
-│   └── automated_land_cover_app.js
-├── python/
-│   ├── 01_test_gee_connection.py
-│   ├── Libya_Land_Cover_Assistant.ipynb
-│   ├── 02_landcover_colab.ipynb
-│   ├── landcover_engine.py
-│   └── requirements.txt
-├── libya_landcover/
-├── contracts/
-├── docs/
-├── tests/
-│   └── test_repository_structure.py
-└── .github/
-    └── workflows/
-        └── static-tests.yml
-```
-
-## Python ↔ GEE synchronization
-
-WP03 ports the final active GEE **modeling core** documented in [WP01](docs/gee-reference-spec.md): input normalization/preflight, separate national/AOI predictors, per-class sorted splits, terrain masks, existing temporal and selection rules, failed-candidate continuation and retained selected graphs. `python/assistant_adapter.py` connects this engine to the [WP02 contracts](docs/assistant-contracts.md) in `contracts/` and emits linked status/result objects with session-local map references.
-
-See [Python engine integration](docs/python-engine-integration.md) for usage, compatibility notes and checks. Offline software tests include comparisons with extracted GEE client functions and serialization using the actual Earth Engine Python client. The [Tripoli live comparison](docs/wp04-tripoli-comparison.md) now matches all recorded observation groups; additional WP04 cases remain open. WP05 adds a separate job/export layer described below; the adapter itself does not implement jobs or change the GEE reference. WP06 adds a bounded conversational interface; direct-download services remain later work.
-
-## Earlier API-based conversational assistant (WP06)
-
-Version 0.6 adds a private Colab/Jupyter chat interface over the existing mapping,
-job and pilot-export services. Review a request before confirming execution, ask
-for recorded status/results, or import an existing pilot ZIP without rerunning the
-model. Free Persian/English text uses an optional OpenAI API key; a clearly labeled
-guided-command mode works without one. Replies use actual records, and distinguish
-saved model graphs, a successful pilot window, and full-region delivery.
-
-Start with the [WP06 notebook](python/06_wp06_landcover_assistant.ipynb) and
-[usage, execution boundaries and limitations](docs/wp06-conversational-assistant.md).
-The reference GEE code and Python modeling engine remain unchanged. This MVP does
-not yet compute class-area/change analyses or deliver a complete tiled region.
-
-## Installable assistant runner (WP04)
-
-The Python engine now has an installable command-line runner, local result/graph
-bundles, and a separate diagnostic harness for comparing actual Python and GEE
-observations. See [WP04 installation and execution](docs/wp04-execution.md).
-The GEE reference and WP03 engine are unchanged. The supplied Tripoli Python/GEE
-records match for their settings, selected result, split IDs and 26 raster probes;
-this does not prove full-raster equality. Saved graphs are not GeoTIFF exports.
-
-## Persistent jobs and GeoTIFF exports (WP05)
-
-Version 0.5 adds a local job ledger, a mapping worker, and separate Earth Engine
-Drive export jobs. A completed WP04 bundle can be imported and its selected maps
-exported without repeating seed search. Export submission, polling, cancellation
-and recovery are explicit operations suitable for a later chatbot tool layer.
-The GEE reference, Python modeling engine and adapter are unchanged.
-
-See [WP05 commands, recovery and acceptance](docs/wp05-jobs-exports.md) and
-[Tripoli export notebook](python/04_wp05_tripoli_export.ipynb).
-This is a single-owner Python/CLI service foundation; it does not deploy a chatbot
-or HTTP server. Automated checks are offline. A successful authenticated Tripoli
-export and inspection of the downloaded GeoTIFF remain live acceptance steps.
-
-### Bounded tile pilot (WP05B)
-
-The owner-run full-area export reached a second server attempt after more than
-ten hours. Version 0.5.1 adds one independently tracked, at-most 1024 × 1024 pixel
-pilot export on the same 10 m grid, plus progress/attempt metadata and portable
-recovery from WP05/pilot backups. It preserves the original operation and selected
-model. See [pilot instructions and continuity record](docs/wp05-tile-pilot.md)
-and [the pilot notebook](python/05_wp05_tripoli_tile_pilot.ipynb).
-The [first live pilot TIFF passed delivery inspection](docs/wp05-pilot-live-inspection.md)
-in attempt 1 after 3 minutes 42 seconds. This establishes one aligned, nonempty
-tile export; it does not establish full-grid coverage or whole-AOI performance.
-No full tiling campaign has been launched.
-
-## Google Colab
-
-Open the notebook at:
-
-`https://colab.research.google.com/github/hamedsabzchi/libya-automated-land-cover-mapping/blob/main/python/02_landcover_colab.ipynb`
-
-The notebook first performs a **public-data smoke test** over Libya using the 2024 Satellite Embedding collection, so Earth Engine initialization and public input availability can be checked without the personal AOI/training assets. Separate cells then test the default personal assets and optionally run one full candidate model.
-
-## Scientific interpretation and limitations
-
-This workflow is a supervised land-cover classification system, not a universally transferable land-cover product. Results depend on the supplied training points, label quality, spatial coverage, class balance, predictor availability, selected years, and model settings.
-
-The reported accuracy is an **internal stratified random hold-out assessment from the same training asset, not independent external validation**. Spatially nearby training and validation points can make random-split accuracy optimistic. Publication-quality assessment should use independent probability-based validation samples or an appropriately designed spatial cross-validation strategy.
-
-The training scope deliberately includes valid points outside the mapping AOI. This can improve sample support, but may also introduce geographic domain shift. The temporal post-processing deliberately favors cultivated classes 4 and 5 under documented conditions, so the final map should be interpreted as a supervised classification plus explicit temporal rules rather than a neutral modal composite.
-
-## Reproducibility
-
-The public repository reproduces the computational logic. The GEE app accepts user-supplied AOI/training asset IDs, while the Python configuration includes author-specific example defaults; the underlying AOI/training assets remain external dependencies. Full reproduction therefore requires accessible equivalent assets. Public dataset identifiers and scientific references are retained for data provenance and do not imply authorship, sponsorship, or endorsement by their providers.
-
-## Author
-
-Hamed Sabzchi Dehkharghani
-
-## Independent personal-project notice
-
-This repository is an independent personal technical portfolio and research-development project by Hamed Sabzchi Dehkharghani. It is not published on behalf of any employer, organization, or institution. No institutional affiliation, sponsorship, approval, endorsement, or official status is claimed or implied.
-
-## Citation
-
-Software citation metadata are provided in `CITATION.cff`.
-
-**Zenodo DOI for v1.0.3:** `10.5281/zenodo.22798666`
-
-## Licensing note
-
-No open-source license is asserted by this repository at this stage. The repository is publicly viewable for technical portfolio, reproducibility, and citation purposes; no broader reuse permission is granted by an explicit software license here.
-
+**No open-source license is asserted by this repository.** Public visibility does not itself grant broader reuse permission. The existing [licensing notice](docs/model-reference.md#licensing-note) is retained.
