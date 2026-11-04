@@ -61,7 +61,7 @@ async def exercise():
             ns={'ui':ui,'assistant':a,'local_parser':a.parser}
             with patch.dict(sys.modules,{'google.colab':colab}), patch('IPython.display.display',display), \
                  patch('IPython.display.clear_output'), patch('subprocess.run',install), \
-                 patch('importlib.metadata.version',side_effect=lambda name:'2.6.0' if name=='torch' else '0.11.0'):
+                 patch('importlib.metadata.version',side_effect=lambda name:'2.6.0' if name=='torch' else '0.11.1'):
                 exec(code.replace('/content/',folder+'/'),ns)
             assert ns['ui'] is ui and ns['assistant'] is a
         else:

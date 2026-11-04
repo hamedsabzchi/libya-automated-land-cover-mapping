@@ -99,19 +99,20 @@ See [Python engine integration](docs/python-engine-integration.md) for usage, co
 
 ## Start here: map workspace (WP08)
 
-[Open the map assistant in Colab](https://colab.research.google.com/github/hamedsabzchi/libya-automated-land-cover-mapping/blob/feat/wp08-map-workspace/python/08_wp08_map_workspace.ipynb).
+[Open the map assistant in Colab](https://colab.research.google.com/github/hamedsabzchi/libya-automated-land-cover-mapping/blob/feat/wp08-map-workspace/python/Libya_Land_Cover_Assistant.ipynb).
 Click **Start assistant** once. Follow **Connect → Prepare map → Explore & download** and the visible **Next step** instruction.
-The normal workflow is in this one notebook; no previous ZIP or code edits are needed.
+The complete 0.11.1 workspace is in this one notebook; no update cells, previous notebook, ZIP or code edits are required to start. Existing work in the same runtime is retained.
 
 - Connect the Google account authorized for the configured Tripoli project/data.
-- Choose a year and click **Create map** once. Progress updates automatically.
+- Choose **Target year** and **Fallback year**, then click **Create map** once. Progress updates automatically.
 - Explore the full study-area land-cover layer and its 12-class legend.
 - Select a blue square and click **Create tile download** once. The **Downloads**
   section keeps its status and Drive link visible automatically, even when you select another tile.
 - **Ask the assistant** is optional English help for colours, next steps, status,
-  preparing another year, and downloading the tile selected on the map.
+  preparing another year, and downloading the tile selected on the map. **Model accuracy**
+  and **Explain accuracy** read and interpret saved validation results without new Earth Engine computation.
 
-Version 0.9.0 keeps the reference GEE, Python modeling engine and adapter unchanged.
+Version 0.11.1 keeps the reference GEE, Python modeling engine and adapter unchanged.
 Display requests use the retained final-map graph over the actual AOI; downloads
 use selected 1024 × 1024 windows on the existing 10 m grid. Display tiles load on
 demand: an accepted map request does not prove every location has rendered.

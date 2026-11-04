@@ -1,4 +1,4 @@
-"""Add saved-accuracy chat to the open workspace, retaining its map and downloads."""
+"""Compatibility entry: update an open workspace or open the complete assistant."""
 import asyncio
 import importlib
 import subprocess
@@ -7,9 +7,20 @@ import sys
 SERVICE_COMMIT = "b33e1abebc7f3e65727bd2590b8be320eb954bf6"
 
 
+def open_complete_assistant():
+    """Use the same pinned startup as the complete Colab, without a prior UI."""
+    from urllib.request import urlopen
+    url = ('https://raw.githubusercontent.com/hamedsabzchi/'
+           'libya-automated-land-cover-mapping/' + SERVICE_COMMIT + '/python/start_assistant.py')
+    with urlopen(url, timeout=60) as response:
+        source = response.read().decode('utf-8')
+    exec(compile(source, 'start_assistant.py', 'exec'), globals())
+    return globals().get('ui')
+
+
 async def update_accuracy(previous):
     if previous is None or getattr(previous, '_closed', True):
-        raise RuntimeError('Run this update in the same notebook as your open map workspace.')
+        return open_complete_assistant()
     while previous._busy or previous._polling:
         await asyncio.sleep(.25)
     previous._busy = True  # Existing timers skip the update; no new timers/tasks.
@@ -41,7 +52,7 @@ async def update_accuracy(previous):
         from libya_landcover.accuracy_chat import upgrade_accuracy_chat
         upgrade_accuracy_chat(previous)
         import libya_landcover
-        libya_landcover.__version__ = '0.11.0'
+        libya_landcover.__version__ = '0.11.1'
         from IPython.display import display
         # Show the year controls here too; the existing map stays mounted.
         display(previous.choices)
@@ -60,5 +71,46 @@ async def update_accuracy(previous):
         previous._busy = False
 
 
+def show_update_error(exc):
+    """Report a failed update in the cell; never leave an unobserved asyncio error."""
+    from html import escape
+    from IPython.display import HTML, display
+    display(HTML('<p>The assistant update could not finish. Existing work has been retained.</p>'
+                 '<details><summary>Error details</summary><pre>' +
+                 escape(type(exc).__name__ + ': ' + str(exc)) + '</pre></details>'))
+
+
+def update_finished(task):
+    try:
+        task.result()
+    except asyncio.CancelledError:
+        pass
+    except Exception as exc:
+        show_update_error(exc)
+
+
+def open_or_update():
+    previous = globals().get('ui')
+    if previous is None or getattr(previous, '_closed', True):
+        # A fresh notebook must open in the cell's display context, not in an
+        # orphaned background task which assumes a map is already mounted.
+        try:
+            return open_complete_assistant()
+        except Exception as exc:
+            show_update_error(exc)
+            return None
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        try:
+            return asyncio.run(update_accuracy(previous))
+        except Exception as exc:
+            show_update_error(exc)
+            return None
+    task = loop.create_task(update_accuracy(previous))
+    task.add_done_callback(update_finished)
+    return task
+
+
 if __name__ == '__main__':
-    accuracy_update_task = asyncio.get_running_loop().create_task(update_accuracy(globals().get('ui')))
+    accuracy_update_task = open_or_update()

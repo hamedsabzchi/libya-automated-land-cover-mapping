@@ -1,5 +1,34 @@
 # WP08 — Map workspace
 
+## Complete Colab startup (0.11.1)
+
+`python/Libya_Land_Cover_Assistant.ipynb` is the complete, single-cell entry point.
+The existing `08_wp08_map_workspace.ipynb` is kept identical for older links. Both embed
+`python/start_assistant.py` and pin the same service commit; neither runs an update helper.
+A fresh runtime needs no `ui`, `assistant`, previous notebook or uploaded backup. Maps,
+legend, selectable TIFF exports, automatic status, backup/restore, English chat, saved
+accuracy interpretation and both year controls are included.
+
+Reopening the same current workspace redisplays its existing widgets and replaces one
+browser callback. It retains map layers, selections, downloads, draft, conversation and
+loaded chat weights. Saved job files are kept when a closed interface is replaced.
+An older loaded package follows the existing guarded upgrade path; an active mapping
+blocks a package upgrade. No work is launched by startup. This cannot recover files
+from a deleted Colab runtime; saved ZIP restoration remains available.
+
+The compatibility `update_accuracy.py` now opens that same pinned complete starter
+when there is no usable UI. Its normal open-workspace path still backs up and updates
+in place. Scheduled failures are retrieved and reported inside the cell, fixing the
+`Task exception was never retrieved` / missing-workspace error. No separate patch is
+needed in the complete notebook.
+
+Offline regression checks cover fresh and installed-package startup, closed-interface
+recovery, same-workspace reopening, compatibility fallback, handled async failures,
+accuracy/year behavior and existing map/download/backup flows. Installation, inference
+and remote services are mocked. No live Google account or Earth Engine computation
+is used by these checks. The GEE reference, Python engine, adapter, contracts, map
+backend and export implementations are unchanged.
+
 ## Target and fallback years (0.11.0)
 
 The earlier interface hid its year selector after a map was selected and did not expose
@@ -83,7 +112,7 @@ Python engine, adapter, contracts, map backend and export implementation are unc
 
 ## User path
 
-Open [the single-cell Colab](https://colab.research.google.com/github/hamedsabzchi/libya-automated-land-cover-mapping/blob/feat/wp08-map-workspace/python/08_wp08_map_workspace.ipynb) and click **Start assistant**. Installation and the first local chat-model download take time. No API key is needed.
+Open [the single-cell Colab](https://colab.research.google.com/github/hamedsabzchi/libya-automated-land-cover-mapping/blob/feat/wp08-map-workspace/python/Libya_Land_Cover_Assistant.ipynb) and click **Start assistant**. Installation and the first local chat-model download take time. No API key is needed.
 
 1. **Connect.** Click **Connect Google** and follow the authentication prompt. Your account needs authorized Earth Engine access to the configured project, boundary and training assets. Public repository access does not grant asset access.
 2. **Prepare map.** Choose a year, click **Create map** once. Keep Colab connected during preparation. Repeating the same request reuses an existing queued, running or completed map instead of starting another seed search.
