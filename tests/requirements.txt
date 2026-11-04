@@ -1,0 +1,2 @@
+# Pins the client and its bundled offline algorithm fixtures for graph tests.
+earthengine-api==1.7.48

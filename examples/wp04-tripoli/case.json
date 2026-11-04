@@ -1,0 +1,16 @@
+{
+  "project": "practical-proxy-441422-n6",
+  "request": {
+    "request_id": "53f4a14d-ab30-4b9a-a105-ec58974f7c43",
+    "aoi_asset": "projects/practical-proxy-441422-n6/assets/Libya/Tripoli",
+    "training_asset": "projects/practical-proxy-441422-n6/assets/Libya/TD3-attept1-tripoli",
+    "class_field": "lc_code",
+    "target_year": 2024,
+    "year_count": 5,
+    "fallback_year": 2023,
+    "train_fraction": 0.7,
+    "trees": 500
+  },
+  "engine_commit": "bf9cf6c8bbd03d083c2d9bccae722d7036923afc",
+  "status": "configured_not_executed"
+}
