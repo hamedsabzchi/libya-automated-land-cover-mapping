@@ -556,9 +556,9 @@ class MapUI(ChatUI):
 
 
 def display_map_assistant(assistant,*,download=None,connect=None):
-    from IPython.display import display
+    from .widget_display import display_widget
     ui=MapUI(assistant,download=download,connect=connect)
-    display(ui.widget)
+    display_widget(ui.widget)
     from .colab_updates import attach_colab_updates
     attach_colab_updates(ui)
     return ui
@@ -570,7 +570,7 @@ def restore_live_workspace(previous):
         raise ValueError('The assistant is busy. Wait for its current action, then run the repair cell again.')
     if previous.map_data and previous.assistant.mapping_id()!=previous.map_data['mapping_id']:
         raise ValueError('Select the prepared map before restoring its display.')
-    from IPython.display import display
+    from .widget_display import display_widget
     assistant=previous.assistant
     old_guard=assistant.before_live
     fresh=None
@@ -602,7 +602,7 @@ def restore_live_workspace(previous):
     previous.close()
     try:fresh._poll_task=asyncio.get_running_loop().create_task(fresh._poll_loop())
     except RuntimeError:pass
-    display(fresh.widget)
+    display_widget(fresh.widget)
     from .colab_updates import attach_colab_updates
     attach_colab_updates(fresh)
     if fresh._browser_updates:fresh._browser_tick()

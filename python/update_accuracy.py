@@ -56,10 +56,10 @@ async def update_accuracy(previous):
         upgrade_accuracy_chat(previous)
         previous.assistant.engine_commit = SERVICE_COMMIT
         import libya_landcover
-        libya_landcover.__version__ = '0.12.0'
-        from IPython.display import display
+        libya_landcover.__version__ = '0.12.1'
+        from libya_landcover.widget_display import display_widget
         # Show the year controls here too; the existing map stays mounted.
-        display(previous.choices)
+        display_widget(previous.choices)
         print('Ready. Choose Target year and Fallback year, then click Create map when you want a new run. Your existing work is retained.')
         return previous
     except Exception:

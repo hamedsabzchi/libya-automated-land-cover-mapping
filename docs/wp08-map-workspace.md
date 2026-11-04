@@ -1,5 +1,23 @@
 # WP08 — Map workspace
 
+## Explicit widget display (0.12.1)
+
+The complete notebook publishes the live widget-view MIME payload explicitly instead
+of relying on the Python object formatter. At each mount it registers the widget comm
+targets, enables Colab’s custom widget manager, and sends the existing widget tree.
+This covers fresh startup, reopening and display restoration. It does not recreate
+the working map, submit jobs, change years or alter saved work. The old update entry
+also uses this publisher for its controls. A closed widget is rejected clearly.
+
+A real IPython regression test reproduces a text-only VBox display and verifies that
+the explicit publisher still emits the interactive model ID. Widget identity and
+button callbacks are preserved. This verifies the Python transport fix; browser
+rendering in an authenticated Colab session has not been verified. Colab’s widget
+manager and its frontend dependencies still need to load in the browser. The plain
+text fallback now describes that limitation rather than printing Python objects.
+
+No GEE, Python engine, validation range, map backend or export code changes are included.
+
 ## 2025 year support (0.12.0)
 
 The complete Colab supports target and fallback years **2017–2025**. Existing defaults

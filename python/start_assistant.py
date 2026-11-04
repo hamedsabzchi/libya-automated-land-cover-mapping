@@ -7,7 +7,7 @@ from IPython.display import display, HTML, clear_output
 # The compatibility updater supplies the same pin when opening a fresh workspace.
 if not isinstance(globals().get("SERVICE_COMMIT"), str) or not __import__("re").fullmatch(r"[0-9a-f]{40}", SERVICE_COMMIT):
     raise ValueError("The assistant release pin is missing or invalid.")
-EXPECTED_VERSION = "0.12.0"
+EXPECTED_VERSION = "0.12.1"
 
 def repair_closed_console_logs():
     # Older startup redirected stderr into a short-lived file. Libraries retained
@@ -142,7 +142,8 @@ def start_assistant():
             # Replace the browser callback once; never rebuild or submit work here.
             from libya_landcover.colab_updates import attach_colab_updates, detach_colab_updates
             detach_colab_updates(ui)
-            display(ui.widget)
+            from libya_landcover.widget_display import display_widget
+            display_widget(ui.widget)
             attach_colab_updates(ui)
             assistant = ui.assistant
             assistant.engine_commit = SERVICE_COMMIT  # New requests record the installed source.
