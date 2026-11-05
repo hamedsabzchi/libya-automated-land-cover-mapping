@@ -5,6 +5,12 @@ Create and explore land-cover maps, download selected areas as GeoTIFFs, and ask
 [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/hamedsabzchi/libya-automated-land-cover-mapping/blob/main/python/Libya_Land_Cover_Assistant.ipynb)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22798666.svg)](https://doi.org/10.5281/zenodo.22798666)
 
+## Open the website
+
+**[Open Libya Land-Cover Website](https://libya-automated-land-cover-mapping-jtmkdtphwky47bfbyfdyzf.streamlit.app/)**
+
+The website runs on Streamlit. Create maps and view accuracy reports there using your own Earth Engine project. If a Google sign-in setup message appears, the website owner must finish the [one-time sign-in configuration](docs/website.md#one-time-setup-by-the-website-owner). Website TIFF downloads and chat are not implemented yet.
+
 ## Start here — use the assistant
 
 **[Open the complete Libya Land-Cover Assistant](https://colab.research.google.com/github/hamedsabzchi/libya-automated-land-cover-mapping/blob/main/python/Libya_Land_Cover_Assistant.ipynb)**
@@ -45,7 +51,7 @@ The assistant currently does **not** calculate class areas or change statistics,
 | Inspect examples and recorded evidence | [Examples](examples/README.md) | Configurations and links to execution records |
 | Run software checks | [Tests](tests/README.md) | Offline verification and CI |
 | Find earlier development versions | [Notebook directory](python/README.md#earlier-notebooks) and [development history](docs/development-history.md) | Retained for reference; not additional setup steps |
-| Use or deploy the separate website | [Website guide](docs/website.md), [app.py](app.py) and [requirements.txt](requirements.txt) | Google sign-in, each visitor's Earth Engine project, map and accuracy report |
+| Use or deploy the separate website | [Open website](https://libya-automated-land-cover-mapping-jtmkdtphwky47bfbyfdyzf.streamlit.app/) · [Website guide](docs/website.md) · [Source](app.py) | Google sign-in, each visitor's Earth Engine project, map and accuracy report |
 
 The separate Streamlit website uses each visitor's Google authorization, Cloud project and accessible assets. Its owner must configure Google OAuth for the deployed address first; see the [website setup guide](docs/website.md). It calls the existing reference engine, but is not the complete Colab assistant: chat, TIFF tile export and saved-work ZIP recovery remain in Colab. Website tests are offline; live Google sign-in and rendering still require deployment verification.
 
