@@ -17,6 +17,8 @@ from website.service import (
 )
 
 SETUP_URL = "https://github.com/hamedsabzchi/libya-automated-land-cover-mapping/blob/main/docs/website.md"
+TRIPOLI_AOI = "projects/practical-proxy-441422-n6/assets/Libya/Tripoli"
+TRIPOLI_TRAINING = "projects/practical-proxy-441422-n6/assets/Libya/TD3-attept1-tripoli"
 
 
 def show_error(exc):
@@ -61,7 +63,17 @@ def render_map(display):
 def render_result(result, token, can_call):
     config = result["request"]["config"]
     st.subheader(f"Your saved result · {config['target_year']}")
-    st.caption(f"Earth Engine compute project: {result['request']['project']} · Boundary: {config['aoi_asset']}")
+    display = st.session_state.get("website_display")
+    if display:
+        render_map(display)
+    if "website_display_error" in st.session_state:
+        error = st.session_state.website_display_error
+        st.warning("Map display could not open. Your result and accuracy report are still saved in this session.")
+        st.caption(error["message"] + " Support code: " + error["code"])
+    if st.button("Open / refresh saved map", disabled=not can_call):
+        open_display(token, result)
+        st.rerun()
+    st.subheader("Accuracy report")
     st.download_button("Download accuracy report", report_bytes(result),
                        file_name=f"land-cover-{config['target_year']}-accuracy.json",
                        mime="application/json", on_click="ignore")
@@ -81,15 +93,6 @@ def render_result(result, token, can_call):
         st.caption("Confusion matrix: rows = reference; columns = predicted.")
         st.dataframe(pd.DataFrame(metrics["confusion"], index=[f"Reference {c}" for c in CLASS_VALUES],
                                   columns=[f"Predicted {c}" for c in CLASS_VALUES]), width="stretch")
-    if st.button("Open / refresh saved map", disabled=not can_call):
-        open_display(token, result)
-    if "website_display_error" in st.session_state:
-        error = st.session_state.website_display_error
-        st.warning("Map display could not open. Your result and accuracy report are still saved in this session.")
-        st.caption(error["message"] + " Support code: " + error["code"])
-    display = st.session_state.get("website_display")
-    if display:
-        render_map(display)
     with st.expander("Saved model settings"):
         st.json(result["request"])
     st.caption("Keep this tab connected and download the report before signing out. "
@@ -98,20 +101,24 @@ def render_result(result, token, can_call):
 
 def main():
     st.set_page_config(page_title="Libya Land-Cover Website", layout="wide")
-    st.title("Libya Land-Cover Website")
-    st.write("Sign in with Google, choose your Earth Engine project and data, then create your map.")
-    st.caption("Create and explore your map and read its accuracy report here. No Colab notebook or Earth Engine Code Editor is needed. "
-               "Processing uses your selected Earth Engine project's quota. The owner's project is blocked for computation.")
+    st.title("Libya Land-Cover Map")
+    st.write("Choose a study area and year. Create and explore your land-cover map here.")
+    st.caption("1. Sign in   →   2. Choose your map   →   3. Explore your result")
+    st.caption("No code or notebooks to run. Processing uses your own authorized Earth Engine project.")
     try:
         auth = dict(st.secrets.get("auth", {}))
     except (FileNotFoundError, st.errors.StreamlitSecretNotFoundError):
         auth = {}
     problem = auth_configuration_error(auth)
     if problem:
-        st.warning(problem)
-        st.link_button("Website owner: Google sign-in setup", SETUP_URL)
-        st.info("Google sign-in needs a one-time configuration for this website's address. "
-                "Visitors do not need a service-account key or an API key.")
+        st.warning("Map creation is not available yet. The website owner needs to activate Google sign-in.")
+        st.write("There is nothing for visitors to configure on this page. Once activated, "
+                 "you will sign in, choose your map and view the result here.")
+        st.button("Sign in with Google", type="primary", disabled=True)
+        with st.expander("Website owner setup"):
+            st.write(problem)
+            st.link_button("Configure Google sign-in", SETUP_URL)
+            st.caption("This is a one-time hosting setup. No password or secret belongs in GitHub or chat.")
         return
 
     if not st.user.is_logged_in:
@@ -143,28 +150,41 @@ def main():
                    "and sign in again. No new Earth Engine work will start.")
 
     st.subheader("Choose your map")
-    st.caption("Use an Earth Engine-enabled project belonging to you or your organization. "
-               "Your Google login identifies you; the project below determines whose compute quota is used.")
+    study_area = st.radio("Study area", ["Tripoli (configured data)", "Custom data"],
+                          key="website_area_choice", horizontal=True)
+    if study_area == "Tripoli (configured data)":
+        st.caption("Tripoli's boundary and training data are already selected. "
+                   "Your Google account must have permission to read them.")
+    with st.expander("Why do I need a processing project?"):
+        st.write("Earth Engine assigns processing allowance to a registered Google Cloud project. "
+                 "Use a project belonging to you or your organization, so this website does not use "
+                 "the owner's allowance. A Google account alone does not provide this access. "
+                 "If you do not have an approved project, ask your organization's administrator to arrange one.")
     with st.form("website_settings"):
-        project = st.text_input("Your Earth Engine Cloud project ID", key="website_project",
+        project = st.text_input("Your processing project ID", key="website_project",
                                 placeholder="your-earth-engine-project")
-        aoi = st.text_input("Study-area boundary asset", key="website_aoi",
-                            placeholder="projects/your-project/assets/your-boundary")
-        training = st.text_input("Training-data asset", key="website_training",
-                                 placeholder="projects/your-project/assets/your-training-data")
         c1, c2 = st.columns(2)
         years = list(range(EMBEDDING_FIRST_YEAR, EMBEDDING_LAST_YEAR + 1))
         target = c1.selectbox("Target year", years, index=years.index(2024), key="website_target")
         fallback = c2.selectbox("Fallback year", years, index=years.index(2023), key="website_fallback")
+        st.caption("Fallback year is used by the reference model when its fallback rule applies.")
+        with st.expander("Study-area data", expanded=study_area == "Custom data"):
+            custom_aoi = st.text_input("Study-area boundary asset", key="website_aoi",
+                                      value=TRIPOLI_AOI, disabled=study_area != "Custom data")
+            custom_training = st.text_input("Training-data asset", key="website_training",
+                                           value=TRIPOLI_TRAINING, disabled=study_area != "Custom data")
+        aoi, training = ((TRIPOLI_AOI, TRIPOLI_TRAINING) if study_area != "Custom data"
+                         else (custom_aoi, custom_training))
         with st.expander("Additional settings"):
             year_count = st.number_input("Years combined", min_value=1, max_value=20, value=5, step=1)
             class_field = st.text_input("Training class field", value="lc_code")
             st.caption("The existing engine uses 500 trees and its reference seed search. "
                        "The annual window must have available embedding data.")
-        st.caption("Both assets must be accessible to your Google account. Signing in does not grant "
-                   "access to the project owner's private assets. Training codes use the 12-class legend.")
-        check = st.form_submit_button("Check access", disabled=not can_call)
         create = st.form_submit_button("Create map", type="primary", disabled=not can_call)
+        with st.expander("Optional access check"):
+            check = st.form_submit_button("Check access", disabled=not can_call)
+        st.caption("Create map checks your access automatically and opens the result when ready. "
+                   "Keep this page open while it works.")
 
     if check or create:
         try:

@@ -17,11 +17,20 @@ registration first; a Gmail account alone does not supply compute quota.
 ## What a visitor does
 
 1. Choose **Sign in with Google** and grant Earth Engine access.
-2. Enter their Earth Engine Cloud **project ID**, **boundary asset** and
-   **training-data asset**. They must have permission to use all three.
+2. Enter their own processing **project ID**. **Tripoli (configured data)** is
+   selected by default, with its boundary and training data already filled in.
+   Their account must have permission to read these assets. To use other data,
+   select **Custom data** and enter the boundary and training asset paths.
 3. Choose the **target year** and **fallback year**, then click **Create map** once.
    **Check access** is optional and does not train a model.
-4. Explore the map, read the accuracy tables and **Download accuracy report**.
+4. The map opens automatically above the accuracy report. Explore the colours
+   and legend, read the accuracy tables and **Download accuracy report**.
+
+When Google sign-in is not configured, visitors see an explicit unavailable
+message and a disabled sign-in button. Technical instructions are under
+**Website owner setup**. This state is not a working deployment; changing the
+interface does not activate OAuth. Verify a real visitor login, asset access,
+map creation and rendering before describing the website as ready.
 
 No service-account JSON key, pasted access token, paid chat API or command-line
 authentication is required from visitors. Signing in does not grant access to
