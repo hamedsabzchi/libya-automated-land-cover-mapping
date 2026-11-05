@@ -85,6 +85,32 @@ class WebsiteUITests(unittest.TestCase):
         self.assertEqual(self.button("Sign in with Google").label, "Sign in with Google")
         self.assertEqual(self.calls, [])
 
+    def test_no_colab_exit_and_no_owner_compute(self):
+        self.fill()
+        links = self.app.get("link_button")
+        self.assertFalse(any("colab" in str(link.proto).lower() for link in links))
+        self.app.text_input(key="website_project").input("practical-proxy-441422-n6")
+        self.button("Create map").click().run()
+        self.assertFalse(self.app.exception)
+        self.assertEqual(self.calls, [])
+        self.assertIn("owner's project cannot be used", self.app.error[0].value)
+
+    def test_previously_saved_owner_result_can_be_read_but_not_refreshed(self):
+        from website.service import run_operation
+        self.fill()
+        saved = result()
+        saved["request"]["project"] = "practical-proxy-441422-n6"
+        self.app.session_state.website_result = saved
+        self.app.run()
+        with patch("website.ui.run_operation", side_effect=run_operation), \
+             patch("website.service.subprocess.run") as spawn:
+            self.button("Open / refresh saved map").click().run()
+        self.assertFalse(self.app.exception)
+        spawn.assert_not_called()
+        self.assertEqual(len(self.app.metric), 3)
+        self.assertEqual(self.app.session_state.website_result, saved)
+        self.assertEqual(self.app.session_state.website_display_error["code"], "COMPUTE_PROJECT_NOT_ALLOWED")
+
     def test_2025_fallback_and_results_survive_rerun_without_retraining(self):
         self.fill()
         self.app.selectbox(key="website_target").select(2025)

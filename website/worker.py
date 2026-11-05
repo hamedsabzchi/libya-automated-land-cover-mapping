@@ -45,7 +45,8 @@ def execute(payload):
     project = validate_project(request["project"])
     config = normalized_config(LandCoverConfig(**request["config"]))
     # No ambient credentials, shared credential files, or service-account fallback.
-    ee.Initialize(credentials=Credentials(token=token, scopes=[EE_SCOPE]), project=project)
+    ee.Initialize(credentials=Credentials(token=token, scopes=[EE_SCOPE],
+                                          quota_project_id=project), project=project)
     ee.data.setDeadline(120000)
 
     if action == "connect":

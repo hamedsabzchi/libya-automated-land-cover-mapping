@@ -51,6 +51,24 @@ class WebsiteServiceTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             make_request("user-project-a", "projects/p/assets/a", "projects/p/assets/b", 2030, 2024)
 
+    def test_owner_project_and_numeric_aliases_cannot_start_a_worker(self):
+        for project in ("practical-proxy-441422-n6", "123456789012", "projects/practical-proxy-441422-n6"):
+            with self.subTest(project=project):
+                with self.assertRaises(ValueError):
+                    request(project)
+                malformed = request()
+                malformed["project"] = project
+                with patch("website.service.subprocess.run") as spawn:
+                    for action in ("connect", "map", "display"):
+                        with self.assertRaises(WebsiteError):
+                            run_operation(action, "token", malformed)
+                    spawn.assert_not_called()
+
+    def test_shared_owner_assets_do_not_change_compute_project(self):
+        r = make_request("visitor-project", "projects/practical-proxy-441422-n6/assets/Libya/Tripoli",
+                         "projects/practical-proxy-441422-n6/assets/Libya/TD3-attept1-tripoli", 2024, 2023)
+        self.assertEqual(r["project"], "visitor-project")
+
     def test_auth_requires_api_scope_and_access_token_exposure(self):
         self.assertIsNone(auth_configuration_error(auth()))
         self.assertTrue(auth_configuration_error({}))
@@ -144,7 +162,16 @@ class WorkerTests(unittest.TestCase):
         calls = self.ee.Initialize.call_args_list
         self.assertEqual([c.kwargs["credentials"].token for c in calls], ["token-a", "token-b"])
         self.assertEqual([c.kwargs["project"] for c in calls], ["person-a-project", "person-b-project"])
+        self.assertEqual([c.kwargs["credentials"].quota_project_id for c in calls], ["person-a-project", "person-b-project"])
         self.ee.Authenticate.assert_not_called()
+
+    def test_worker_itself_rejects_owner_before_initializing_ee(self):
+        r = request()
+        r["project"] = "practical-proxy-441422-n6"
+        for action in ("connect", "map", "display"):
+            with self.assertRaises(ValueError):
+                execute({"action": action, "access_token": "token", "request": r})
+        self.ee.Initialize.assert_not_called()
 
     def test_mapping_uses_reference_search_and_saves_before_display(self):
         model = {"final_map": Mock(), "roi": Mock()}

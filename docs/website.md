@@ -8,6 +8,12 @@ the saved validation report. The working [Colab assistant](../python/Libya_Land_
 remains the complete interface for chat, saved-work ZIPs and TIFF tile exports.
 Those features have not been ported into this website.
 
+Creating and viewing a map and reading its validation report happen on the
+website. The website does not send visitors to Colab or the Earth Engine Code
+Editor. Google's account/consent page is still used for sign-in. A new visitor
+without an Earth Engine-enabled Cloud project must complete Google's project
+registration first; a Gmail account alone does not supply compute quota.
+
 ## What a visitor does
 
 1. Choose **Sign in with Google** and grant Earth Engine access.
@@ -23,6 +29,38 @@ the repository owner's private assets. Each requested operation explicitly uses
 the visitor's token and selected Cloud project, including map display requests.
 Project quotas and Google's eligibility/billing rules still apply; this code
 does not bypass quota limits or make a paid project free.
+
+## Whose compute quota is used?
+
+Earth Engine quota belongs to the **selected Cloud project**, not simply to the
+email address used for sign-in. The website requires a visitor-supplied project
+ID and passes it both to Earth Engine initialization and the credential's quota
+project setting for each operation. It never substitutes an owner project or
+owner service account after an error.
+
+The known owner project **`practical-proxy-441422-n6` is explicitly blocked for
+website computation**, including connection checks and map display refreshes.
+Numeric project aliases are not accepted, so a project number cannot bypass
+that check. It is blocked even for the owner when using this public website;
+the owner's existing Colab and GEE workflows are unchanged. This protection
+covers that project only; additional owner projects would need to be added to
+`PROTECTED_COMPUTE_PROJECTS` in `website/service.py`.
+
+Boundary/training assets may still come from a different project if they have
+been shared with the visitor. The asset path does not replace the computation
+project. Existing asset-storage costs/quotas are not transferred by this design,
+and asset-sharing permissions are not changed by the app.
+
+The host's OAuth client identifies this website during Google sign-in. It does
+not determine the Earth Engine computation project. Visitors use their own or
+their organization's authorized project and its applicable quota/billing rules.
+The website does not verify legal ownership of arbitrary projects; Google checks
+whether the signed-in visitor may use the project. No paid fallback, automatic
+quota purchase or billing-account setup is performed by this application.
+
+Free Streamlit Community Cloud hosting has resource limits. A visitor's eligible
+noncommercial project may use its own free Earth Engine quota. OAuth setup on
+the host remains necessary before live use.
 
 ## One-time setup by the website owner
 
@@ -131,6 +169,9 @@ target/fallback changes, reference engine delegation, metric shapes, report
 redaction, account changes, rerun persistence, duplicate submission protection,
 display failures, previous-result preservation, expired authorization and
 credential transport. They use simulated Google responses, not real credentials.
+Additional checks block the owner project in both the service and worker, reject
+numeric aliases, preserve the visitor project when reading shared assets, and
+keep an older owner's saved report readable without allowing display recomputation.
 
 ```bash
 python -m unittest discover -s tests -p 'test_website*.py' -v

@@ -18,6 +18,9 @@ from python.landcover_engine import CLASS_NAMES, CLASS_VALUES, LandCoverConfig, 
 ROOT = Path(__file__).resolve().parents[1]
 EE_SCOPE = "https://www.googleapis.com/auth/earthengine"
 GOOGLE_METADATA = "https://accounts.google.com/.well-known/openid-configuration"
+# This public website must never spend the owner's existing EE compute quota.
+# Asset paths from this project remain usable when explicitly shared for reading.
+PROTECTED_COMPUTE_PROJECTS = frozenset({"practical-proxy-441422-n6"})
 
 
 class WebsiteError(RuntimeError):
@@ -50,8 +53,11 @@ def auth_configuration_error(auth):
 
 def validate_project(project):
     project = str(project).strip()
-    if not re.fullmatch(r"[a-z][a-z0-9-]{4,61}[a-z0-9]|[0-9]{6,20}", project):
-        raise ValueError("Enter your Google Cloud project ID or project number, not a URL.")
+    # IDs only: a numeric alias must not bypass the protected-project check.
+    if not re.fullmatch(r"[a-z][a-z0-9-]{4,28}[a-z0-9]", project):
+        raise ValueError("Enter your own Google Cloud project ID (6–30 characters), not a project number or URL.")
+    if project in PROTECTED_COMPUTE_PROJECTS:
+        raise ValueError("The website owner's project cannot be used for computation here. Enter your own Earth Engine-enabled project ID.")
     return project
 
 
@@ -72,6 +78,10 @@ def request_key(request):
 def run_operation(action, access_token, request, *, result=None, timeout=None):
     if action not in {"connect", "map", "display"}:
         raise ValueError("Unknown website action")
+    try:
+        validate_project(request.get("project", ""))
+    except ValueError as exc:
+        raise WebsiteError("COMPUTE_PROJECT_NOT_ALLOWED", str(exc)) from None
     if not isinstance(access_token, str) or not access_token:
         raise WebsiteError("AUTH_REQUIRED", "Sign in with Google again to connect Earth Engine.")
     payload = {"action": action, "access_token": access_token, "request": request}

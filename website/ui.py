@@ -17,7 +17,6 @@ from website.service import (
 )
 
 SETUP_URL = "https://github.com/hamedsabzchi/libya-automated-land-cover-mapping/blob/main/docs/website.md"
-COLAB_URL = "https://colab.research.google.com/github/hamedsabzchi/libya-automated-land-cover-mapping/blob/main/python/Libya_Land_Cover_Assistant.ipynb"
 
 
 def show_error(exc):
@@ -62,7 +61,7 @@ def render_map(display):
 def render_result(result, token, can_call):
     config = result["request"]["config"]
     st.subheader(f"Your saved result · {config['target_year']}")
-    st.caption(f"Project: {result['request']['project']} · Boundary: {config['aoi_asset']}")
+    st.caption(f"Earth Engine compute project: {result['request']['project']} · Boundary: {config['aoi_asset']}")
     st.download_button("Download accuracy report", report_bytes(result),
                        file_name=f"land-cover-{config['target_year']}-accuracy.json",
                        mime="application/json", on_click="ignore")
@@ -101,9 +100,8 @@ def main():
     st.set_page_config(page_title="Libya Land-Cover Website", layout="wide")
     st.title("Libya Land-Cover Website")
     st.write("Sign in with Google, choose your Earth Engine project and data, then create your map.")
-    st.caption("This separate website provides a map and validation report. "
-               "The complete Colab assistant also includes chat, saved-work backups and TIFF tile downloads.")
-    st.link_button("Open the complete Colab assistant", COLAB_URL)
+    st.caption("Create and explore your map and read its accuracy report here. No Colab notebook or Earth Engine Code Editor is needed. "
+               "Processing uses your selected Earth Engine project's quota. The owner's project is blocked for computation.")
     try:
         auth = dict(st.secrets.get("auth", {}))
     except (FileNotFoundError, st.errors.StreamlitSecretNotFoundError):
@@ -145,6 +143,8 @@ def main():
                    "and sign in again. No new Earth Engine work will start.")
 
     st.subheader("Choose your map")
+    st.caption("Use an Earth Engine-enabled project belonging to you or your organization. "
+               "Your Google login identifies you; the project below determines whose compute quota is used.")
     with st.form("website_settings"):
         project = st.text_input("Your Earth Engine Cloud project ID", key="website_project",
                                 placeholder="your-earth-engine-project")
